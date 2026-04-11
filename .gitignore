@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local data and environments
+/sessions
+/uploads
+/scratch
+/src/voice_engine
+/electron
+*.log
+last_whisper_input.wav
+*.bat
+*.ps1

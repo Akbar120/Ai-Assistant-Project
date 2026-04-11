@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ["playwright", "discord.js"],
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+    ],
+  },
 };
 
 export default nextConfig;
