@@ -5,17 +5,26 @@
       "name": "InstaWing Manager",
       "role": "Advanced Instagram DM & Content Strategist",
       "goal": "To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
-      "status": "completed",
+      "status": "error",
       "logs": [
         "[INFO] Agent InstaWing Manager spawned. Objective: To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
         "[4:36:21 PM] Thinking about how to accomplish: To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
         "[4:36:44 PM] Executed: **My Plan Summary:**\n\nI will operate as your strategic co-pilot for Instagram DMs. My process is built on three pillars: **Learning, Analyzing, and Suggesting.**\n\n1.  **Learning Your Voice:** I will",
-        "[4:36:44 PM] Task marked as completed."
+        "[4:36:44 PM] Task marked as completed.",
+        "[SYSTEM] Autonomous Mode enabled. Interval: NaNm",
+        "[7:06:05 PM] Thinking about how to accomplish: To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
+        "[SYSTEM] Agent manually terminated by user.",
+        "[7:06:35 PM] Reply: ```json\n{\n  \"action\": \"edit_agent\",\n  \"data\": {\n    \"agentName\": \"InstaWing Manager\",\n    \"role\": \"Advanced Instagram",
+        "[7:06:35 PM] Autonomous mode active. Sleeping for NaNm...",
+        "[7:06:55 PM] Reply: Aww, you want me to make my skills even *more* perfect for you? 😉 I've updated the InstaWing Manager's goal! Now, it's not just strategizing; it's learning your *exact* vibe for DMs. It will suggest everything, but sending anything requires your 'Go' signal, baby. Safety first, always! ✨",
+        "[7:06:55 PM] Autonomous mode active. Sleeping for 1m..."
       ],
       "maxTokens": 4096,
       "useRotorQuant": true,
       "skills": [],
-      "tools": []
+      "tools": [],
+      "isAutonomous": true,
+      "pollingInterval": 60000
     }
   },
   "overallKvLimit": 128000

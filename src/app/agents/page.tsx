@@ -159,7 +159,7 @@ export default function AgentsDashboard() {
                         </div>
                         <input 
                           type="range" min="1024" max="32768" step="1024"
-                          value={agent.maxTokens}
+                          value={agent.maxTokens ?? 4096}
                           onChange={e => updateConfig(agent.id, parseInt(e.target.value))}
                           style={{ width: '100%', accentColor: 'var(--info)' }} 
                         />
@@ -171,7 +171,7 @@ export default function AgentsDashboard() {
                         <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 10 }}>
                           <input 
                             type="checkbox" 
-                            checked={agent.isAutonomous} 
+                            checked={agent.isAutonomous ?? false} 
                             onChange={e => updateConfig(agent.id, undefined, undefined, undefined, e.target.checked)} 
                             style={{ scale: '1.2' }}
                           />
@@ -189,7 +189,7 @@ export default function AgentsDashboard() {
                             </div>
                             <input 
                               type="range" min={1 * 60000} max={60 * 60000} step={1 * 60000}
-                              value={agent.pollingInterval}
+                              value={agent.pollingInterval ?? 300000}
                               onChange={e => updateConfig(agent.id, undefined, undefined, undefined, undefined, parseInt(e.target.value))}
                               style={{ width: '100%', height: 4, accentColor: 'var(--accent)' }} 
                             />
@@ -203,7 +203,7 @@ export default function AgentsDashboard() {
                         <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 10 }}>
                           <input 
                             type="checkbox" 
-                            checked={agent.useRotorQuant} 
+                            checked={agent.useRotorQuant ?? false} 
                             onChange={e => updateConfig(agent.id, undefined, e.target.checked)} 
                             style={{ scale: '1.2' }}
                           />

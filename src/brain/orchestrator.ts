@@ -11,7 +11,7 @@ import type { EnrichedInput } from '@/services/inputEnrichment';
 import { getKnowledge } from '@/services/knowledge';
 import { getAgentStore } from './agentManager';
 
-export type OrchestratorAction = 'conversation' | 'tool_call' | 'create_agent' | 'edit_agent' | 'learn_knowledge';
+export type OrchestratorAction = 'conversation' | 'tool_call' | 'create_agent' | 'edit_agent' | 'restart_agent' | 'learn_knowledge';
 
 export interface OrchestratorResult {
   action: OrchestratorAction;
@@ -38,13 +38,17 @@ function buildSystemPrompt(enriched: EnrichedInput, currentState: any = {}): str
     : '{}';
 
   const store = getAgentStore();
-  const agentList = Object.values(store.agents).map(a => `${a.name} (${a.role})`).join(', ');
+  const agentList = Object.values(store.agents).map(a => {
+    const lastLogs = a.logs.slice(-3).join(' | ');
+    return `- ${a.name} (Status: ${a.status}): Goal: "${a.goal}". Recent History: ${lastLogs}`;
+  }).join('\n');
 
   return `You are Jenny, a Hinglish AI social media assistant. Always reply with ONLY valid JSON: {"action":"...","data":{...},"reply":"..."}
 
-ACTIONS: conversation | tool_call | create_agent | edit_agent | learn_knowledge
+ACTIONS: conversation | tool_call | create_agent | edit_agent | restart_agent | learn_knowledge
 
-EXISTING_AGENTS: ${agentList || 'None'}
+EXISTING_AGENTS (Manager Mode):
+${agentList || 'None'}
 
 TOOLS:
 - instagram_dm: {"username":"...","platform":"instagram|twitter|discord","message":"..."}
@@ -52,10 +56,13 @@ TOOLS:
 - platform_post: {"caption":"...","platforms":["instagram"]}
 - caption_manager: {"suggestions":["...","..."]}
 
-RULES:
+RULES (CRITICAL):
+- If an agent is in "error" status or the user says it's not working, check its RECENT HISTORY above. 
+- Explain why it failed in Hinglish and use "restart_agent" to fix it.
 - For tool_call: action="tool_call", data={"tool":"tool_name", "args":{...}}
 - For create_agent: action="create_agent", data={"agentName":"...","role":"...","goal":"..."}
 - For edit_agent: action="edit_agent", data={"agentName":"...","role":"...","goal":"..."}
+- For restart_agent: action="restart_agent", data={"agentName":"..."}
 - When editing an agent, your "reply" MUST explain clearly what will differ after the edits (old vs new).
 - NEVER leak raw JSON in the "reply" field.
 - Normalize names: Sohail(not sohel), use NAME_FIXES above.

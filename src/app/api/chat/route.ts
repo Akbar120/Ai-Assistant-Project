@@ -20,7 +20,7 @@ import { execute_platform_post } from '@/brain/tools/platform_post';
 import { execute_caption_manager } from '@/brain/tools/caption_manager';
 import { runTool } from '@/brain/tools';
 import { setPendingAction, getPendingAction, clearPendingAction, agentNotifications, clearAgentNotifications } from '@/brain/state';
-import { spawnAgent, updateAgent } from '@/brain/agentManager';
+import { spawnAgent, updateAgent, restartAgent } from '@/brain/agentManager';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -181,6 +181,21 @@ export async function POST(req: NextRequest) {
         setPendingAction({ type: 'agent_edit', data: { agentName, role, goal } });
         // The reply from Jenny should already contain the explanation of differences
         finalReply = reply || `⚠️ **Modifying Agent: ${agentName}**\n\nRole: ${role}\nGoal: ${goal}\n\nShall I apply these changes? (Reply YES to confirm)`;
+        break;
+      }
+
+      case 'restart_agent': {
+        const agentName = (data.agentName as string) || '';
+        if (agentName) {
+          const restarted = restartAgent(agentName);
+          if (restarted) {
+            finalReply = reply || `🔄 **${agentName}** ko maine restart kar diya hai! Wo phir se active ho gaya hai. ✨`;
+          } else {
+            finalReply = `❌ Sorry, main **${agentName}** ko dhoond nahi paayi. Kya naam sahi hai?`;
+          }
+        } else {
+          finalReply = `❌ Agent ka naam missing hai, main kise restart karu?`;
+        }
         break;
       }
 

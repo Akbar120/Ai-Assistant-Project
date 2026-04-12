@@ -93,6 +93,23 @@ export function updateAgent(name: string, newRole?: string, newGoal?: string): A
   return agent;
 }
 
+export function restartAgent(name: string): Agent | null {
+  const store = getAgentStore();
+  const agentId = Object.keys(store.agents).find(id => store.agents[id].name.toLowerCase() === name.toLowerCase());
+
+  if (!agentId) return null;
+
+  const agent = store.agents[agentId];
+  agent.status = 'running';
+  agent.logs.push(`[SYSTEM] Manual restart triggered. Re-initializing objectives...`);
+  saveAgentStore(store);
+
+  // Re-trigger the background worker
+  runAgentWorker(agentId);
+
+  return agent;
+}
+
 export function updateAgentStatus(id: string, status: Agent['status']) {
   const store = getAgentStore();
   if (store.agents[id]) {
