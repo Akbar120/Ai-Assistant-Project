@@ -173,13 +173,15 @@ export async function runAgentWorker(id: string) {
         logAgentAction(id, `Task marked as completed.`);
         break;
       } else {
-        logAgentAction(id, `Autonomous mode active. Sleeping for ${Math.round(agent.pollingInterval / 60000)}m...`);
-        await sleep(agent.pollingInterval);
+        const intervalMins = Math.round((agent.pollingInterval || 300000) / 60000);
+        logAgentAction(id, `Autonomous mode active. Sleeping for ${intervalMins}m...`);
+        await sleep(agent.pollingInterval || 300000);
       }
 
     } catch (error: any) {
       updateAgentStatus(id, 'error');
-      logAgentAction(id, `ERROR: ${error.message}`);
+      // Added [ERROR] prefix to make it easy for the Orchestrator to detect
+      logAgentAction(id, `[ERROR] Execution failed: ${error.message}${error.stack ? ` (at ${error.stack.split('\n')[1]})` : ''}`);
       break; 
     }
   } while (agent && agent.isAutonomous);

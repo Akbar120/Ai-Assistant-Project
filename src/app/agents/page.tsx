@@ -96,7 +96,8 @@ export default function AgentsDashboard() {
             const isExpanded = expandedId === agent.id;
             const statusColor = agent.status === 'running' ? 'var(--info)' : 
                                 agent.status === 'completed' ? 'var(--success)' : 
-                                agent.status === 'error' ? 'var(--error)' : 'var(--text-muted)';
+                                agent.status === 'error' ? 'var(--error)' : 
+                                agent.status === 'sleeping' ? 'var(--text-muted)' : 'var(--text-secondary)';
             
             return (
               <div 
@@ -128,9 +129,13 @@ export default function AgentsDashboard() {
                   </div>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div className={agent.status === 'running' ? 'pulse' : ''} style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor }} />
-                      <span style={{ fontSize: 12, color: statusColor, textTransform: 'uppercase', fontWeight: 600 }}>{agent.status}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.2)', padding: '4px 10px', borderRadius: 20 }}>
+                      <div className={agent.status === 'running' ? 'pulse' : ''} style={{ 
+                        width: 8, height: 8, borderRadius: '50%', 
+                        background: statusColor,
+                        boxShadow: `0 0 8px ${statusColor}`
+                      }} />
+                      <span style={{ fontSize: 11, color: statusColor, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5 }}>{agent.status}</span>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', width: 20, textAlign: 'center' }}>
                       {isExpanded ? '▲' : '▼'}
@@ -185,7 +190,7 @@ export default function AgentsDashboard() {
                           <div style={{ paddingLeft: 24 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
                               <span style={{ color: 'var(--text-secondary)' }}>Interval</span>
-                              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{Math.round(agent.pollingInterval / 60000)} mins</span>
+                              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{Math.round((agent.pollingInterval || 300000) / 60000)} mins</span>
                             </div>
                             <input 
                               type="range" min={1 * 60000} max={60 * 60000} step={1 * 60000}
@@ -214,7 +219,7 @@ export default function AgentsDashboard() {
                         </label>
                       </div>
                       
-                      {agent.status === 'running' && (
+                      {['running', 'error'].includes(agent.status) && (
                         <>
                           <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
                           <div style={{ display: 'flex', alignItems: 'center' }}>

@@ -14,8 +14,8 @@ export async function POST(req: Request) {
   
   if (body.action === 'killAgent' && body.id) {
     if (store.agents[body.id]) {
-      store.agents[body.id].status = 'error'; // simulate killed
-      store.agents[body.id].logs.push(`[SYSTEM] Agent manually terminated by user.`);
+      store.agents[body.id].status = 'sleeping'; // stopped, not an error
+      store.agents[body.id].logs.push(`[SYSTEM] Agent manually stopped by user. Entering sleep mode.`);
       saveAgentStore(store);
     }
   } else if (body.action === 'updateConfig') {
