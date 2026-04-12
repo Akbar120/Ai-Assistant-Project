@@ -35,11 +35,10 @@ export default function Sidebar() {
   useEffect(() => {
     const fetchData = () => {
       fetch('/api/status').then((r) => r.json()).then(setStatus).catch(() => null);
-      fetch('/api/agents').then((r) => r.json()).then(data => setAgents(Object.values(data.agents || {}))).catch(() => null);
     };
     
     fetchData();
-    const interval = setInterval(fetchData, 5000); // Polling faster to get live agent dots
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -99,27 +98,6 @@ export default function Sidebar() {
             <PlatformStatusItem emoji="💬" name="Discord" connected={status.platforms.discord.connected} />
             <PlatformStatusItem emoji="🐦" name="X / Twitter" connected={status.platforms.twitter.connected} />
             <PlatformStatusItem emoji="📸" name="Instagram" connected={status.platforms.instagram.connected} />
-          </>
-        )}
-
-        {agents.length > 0 && (
-          <>
-            <div style={{ margin: '16px 0' }} className="divider" />
-            <div className="nav-section-label">Active Agents</div>
-            {agents.map(a => (
-              <div key={a.id} className="nav-item" style={{ cursor: 'default' }}>
-                <span className="nav-icon" style={{fontSize: 12}}>⚙️</span>
-                <span style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
-                <span style={{ marginLeft: 'auto' }}>
-                  <span style={{ 
-                    color: a.status === 'running' ? 'var(--info)' : 
-                           a.status === 'completed' ? 'var(--success)' : 
-                           a.status === 'error' ? 'var(--error)' : 'var(--text-muted)', 
-                    fontSize: '14px' 
-                  }}>●</span>
-                </span>
-              </div>
-            ))}
           </>
         )}
       </nav>

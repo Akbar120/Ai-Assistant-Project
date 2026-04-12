@@ -4,7 +4,7 @@
  */
 
 export interface PendingAction {
-  type: 'dm' | 'agent_spawn';
+  type: 'dm' | 'agent_spawn' | 'agent_edit';
   data: any;
 }
 

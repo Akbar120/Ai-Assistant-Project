@@ -19,7 +19,7 @@ import { execute_instagram_dm } from '@/brain/tools/instagram_dm';
 import { execute_platform_post } from '@/brain/tools/platform_post';
 import { execute_caption_manager } from '@/brain/tools/caption_manager';
 import { setPendingAction, getPendingAction, clearPendingAction } from '@/brain/state';
-import { spawnAgent } from '@/brain/agentManager';
+import { spawnAgent, updateAgent } from '@/brain/agentManager';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -86,6 +86,10 @@ export async function POST(req: NextRequest) {
           const agent = spawnAgent(pending.data.agentName, pending.data.role, pending.data.goal);
           clearPendingAction();
           return NextResponse.json({ reply: `✅ Agent **${agent.name}** has been spawned!`, action: 'create_agent' });
+        } else if (pending.type === 'agent_edit') {
+          const agent = updateAgent(pending.data.agentName, pending.data.role, pending.data.goal);
+          clearPendingAction();
+          return NextResponse.json({ reply: `✅ Agent **${agent?.name}** metadata has been updated! restarting background tasks...`, action: 'edit_agent' });
         }
       } else {
         clearPendingAction();
@@ -163,6 +167,17 @@ export async function POST(req: NextRequest) {
         
         setPendingAction({ type: 'agent_spawn', data: { agentName, role, goal } });
         finalReply = `⚠️ I need an AI Agent to handle this complex task.\n\nAgent: **${agentName}**\nGoal: ${goal}\n\nShall I create it? (Reply YES to approve)`;
+        break;
+      }
+
+      case 'edit_agent': {
+        const agentName = (data.agentName as string) || 'Helper_Agent';
+        const role = (data.role as string) || '';
+        const goal = (data.goal as string) || '';
+        
+        setPendingAction({ type: 'agent_edit', data: { agentName, role, goal } });
+        // The reply from Jenny should already contain the explanation of differences
+        finalReply = reply || `⚠️ **Modifying Agent: ${agentName}**\n\nRole: ${role}\nGoal: ${goal}\n\nShall I apply these changes? (Reply YES to confirm)`;
         break;
       }
 

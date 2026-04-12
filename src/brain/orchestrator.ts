@@ -9,8 +9,9 @@
 import { ollamaChat, OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
 import type { EnrichedInput } from '@/services/inputEnrichment';
 import { getKnowledge } from '@/services/knowledge';
+import { getAgentStore } from './agentManager';
 
-export type OrchestratorAction = 'conversation' | 'tool_call' | 'create_agent' | 'learn_knowledge';
+export type OrchestratorAction = 'conversation' | 'tool_call' | 'create_agent' | 'edit_agent' | 'learn_knowledge';
 
 export interface OrchestratorResult {
   action: OrchestratorAction;
@@ -36,9 +37,14 @@ function buildSystemPrompt(enriched: EnrichedInput, currentState: any = {}): str
     ? JSON.stringify(currentState)
     : '{}';
 
+  const store = getAgentStore();
+  const agentList = Object.values(store.agents).map(a => `${a.name} (${a.role})`).join(', ');
+
   return `You are Jenny, a Hinglish AI social media assistant. Always reply with ONLY valid JSON: {"action":"...","data":{...},"reply":"..."}
 
-ACTIONS: conversation | tool_call | create_agent | learn_knowledge
+ACTIONS: conversation | tool_call | create_agent | edit_agent | learn_knowledge
+
+EXISTING_AGENTS: ${agentList || 'None'}
 
 TOOLS:
 - instagram_dm: {"username":"...","platform":"instagram|twitter|discord","message":"..."}
@@ -48,6 +54,8 @@ TOOLS:
 RULES:
 - For tool_call: action="tool_call", data={"tool":"tool_name", "args":{...}}
 - For create_agent: action="create_agent", data={"agentName":"...","role":"...","goal":"..."}
+- For edit_agent: action="edit_agent", data={"agentName":"...","role":"...","goal":"..."}
+- When editing an agent, your "reply" MUST explain clearly what will differ after the edits (old vs new).
 - NEVER leak raw JSON in the "reply" field.
 - Normalize names: Sohail(not sohel), use NAME_FIXES above.
 - conversation action: be fun, flirty in Hinglish, SHORT replies (2-3 sentences max).`;
@@ -143,7 +151,7 @@ export async function orchestrate(
   if (!parsed.data) parsed.data = {};
 
   const validActions: OrchestratorAction[] = [
-    'conversation', 'tool_call', 'create_agent', 'learn_knowledge'
+    'conversation', 'tool_call', 'create_agent', 'edit_agent', 'learn_knowledge'
   ];
   if (!validActions.includes(parsed.action)) parsed.action = 'conversation';
 

@@ -64,6 +64,28 @@ export function spawnAgent(name: string, role: string, goal: string): Agent {
   return agent;
 }
 
+export function updateAgent(name: string, newRole?: string, newGoal?: string): Agent | null {
+  const store = getAgentStore();
+  const agentId = Object.keys(store.agents).find(id => store.agents[id].name.toLowerCase() === name.toLowerCase());
+
+  if (!agentId) return null;
+
+  const agent = store.agents[agentId];
+  if (newRole) agent.role = newRole;
+  if (newGoal) {
+    agent.goal = newGoal;
+    agent.status = 'running';
+    agent.logs.push(`[INFO] Agent updated. New Objective: ${newGoal}`);
+    saveAgentStore(store);
+    // Restart worker with new goal
+    runAgentWorker(agentId);
+  } else {
+    saveAgentStore(store);
+  }
+
+  return agent;
+}
+
 export function updateAgentStatus(id: string, status: Agent['status']) {
   const store = getAgentStore();
   if (store.agents[id]) {

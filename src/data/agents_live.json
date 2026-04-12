@@ -13,7 +13,7 @@
         "[4:36:44 PM] Task marked as completed."
       ],
       "maxTokens": 4096,
-      "useRotorQuant": false,
+      "useRotorQuant": true,
       "skills": [],
       "tools": []
     }
