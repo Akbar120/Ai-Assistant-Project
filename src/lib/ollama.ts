@@ -1,7 +1,7 @@
 // Ollama client — optimized for low-latency voice responses
 // Defaults to http://localhost:11434
 
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 export const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:e4b';
 export const TEXT_MODEL = process.env.OLLAMA_TEXT_MODEL || 'gemma4:e4b';
 

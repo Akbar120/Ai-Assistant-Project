@@ -734,7 +734,7 @@ export default function ChatPage() {
     } catch {
       addMessage({
         role: 'ai',
-        content: '⚠️ **Cannot connect to Ollama.** Make sure it\'s running at localhost:11434.',
+        content: '⚠️ **Cannot connect to Ollama.** Make sure it\'s running at 127.0.0.1:11434.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       });
     } finally {
