@@ -9,16 +9,13 @@
  * 5. Parallel file processing
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
-import { enrichInput } from '@/services/inputEnrichment';
-import { orchestrate } from '@/brain/orchestrator';
-import { handleDM, validateDM, executePendingDM, clearPendingDM, getPendingDM } from '@/routers/dm.router';
-import { handlePost } from '@/routers/post.router';
-import { handleCaption } from '@/routers/caption.router';
 import { handleConversation } from '@/routers/conversation.router';
 import { addNameCorrection } from '@/services/knowledge';
-import { proposeAgentCreation, executePendingAgent, clearPendingAgent, getPendingAgent } from '@/routers/agent.router';
+import { execute_instagram_dm } from '@/brain/tools/instagram_dm';
+import { execute_platform_post } from '@/brain/tools/platform_post';
+import { execute_caption_manager } from '@/brain/tools/caption_manager';
+import { setPendingAction, getPendingAction, clearPendingAction } from '@/brain/state';
+import { spawnAgent } from '@/brain/agentManager';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -65,9 +62,8 @@ export async function POST(req: NextRequest) {
     // ── Input Enrichment ────────────────────────────────────────────────────
     const enriched = enrichInput(message, !!file, contactCache);
 
-    // ── DM / Agent Confirmation shortcut ────────────────────────────────────
-    const pendingDm = getPendingDM();
-    const pendingAgent = getPendingAgent();
+    // ── Unified Confirmation shortcut ───────────────────────────────────────
+    const pending = getPendingAction();
     const cleanMsg = message.trim().toLowerCase();
 
     const confirmKeywords = ['yes', 'sahi hai', 'hian', 'kar de', 'bhejde', 'theek hai', 'go ahead', 'okay', 'bhej do'];
@@ -76,23 +72,20 @@ export async function POST(req: NextRequest) {
     const isConfirm = confirmKeywords.some(k => cleanMsg.includes(k));
     const isCancel = cancelKeywords.some(k => cleanMsg.includes(k));
 
-    if ((pendingDm || pendingAgent) && (isConfirm || isCancel)) {
-      if (pendingDm) {
-        if (isConfirm) {
-          const dmResult = await executePendingDM();
-          return NextResponse.json({ reply: dmResult.reply, action: 'dm', result: dmResult });
-        } else {
-          clearPendingDM();
-          return NextResponse.json({ reply: 'Theek hai, task cancel kar diya. 😊 Kuch aur help chahiye?', action: 'conversation' });
+    if (pending && (isConfirm || isCancel)) {
+      if (isConfirm) {
+        if (pending.type === 'dm') {
+          const res = await execute_instagram_dm(pending.data);
+          clearPendingAction();
+          return NextResponse.json({ reply: res.reply, action: 'tool_call', result: res });
+        } else if (pending.type === 'agent_spawn') {
+          const agent = spawnAgent(pending.data.agentName, pending.data.role, pending.data.goal);
+          clearPendingAction();
+          return NextResponse.json({ reply: `✅ Agent **${agent.name}** has been spawned!`, action: 'create_agent' });
         }
-      } else if (pendingAgent) {
-        if (isConfirm) {
-          const agentResult = executePendingAgent();
-          return NextResponse.json({ reply: agentResult.reply, action: 'create_agent', result: agentResult });
-        } else {
-          clearPendingAgent();
-          return NextResponse.json({ reply: 'Theek hai, agent spawn cancel kar diya.', action: 'conversation' });
-        }
+      } else {
+        clearPendingAction();
+        return NextResponse.json({ reply: 'Theek hai, cancel kar diya. 😊', action: 'conversation' });
       }
     }
 
@@ -130,69 +123,31 @@ export async function POST(req: NextRequest) {
     let actionResult: Record<string, unknown> | undefined;
 
     switch (action) {
-      case 'dm': {
-        // Pull first user mention from enrichment as fallback for username
-        const firstUserMention = enriched.context.mentions.find(m => m.type === 'user');
-
-        const dmResult = handleDM({
-          username: (data.username as string) || firstUserMention?.value || '',
-          platform: ((data.platform as string) || firstUserMention?.platform || 'instagram') as 'instagram' | 'twitter' | 'discord',
-          message: (data.message as string) || '',
-          hasFile: enriched.context.hasFile,
-        });
-
-        finalReply = dmResult.reply;
-        actionResult = dmResult.data;
-        break;
-      }
-
-      case 'post': {
-        const caption = (data.caption as string) || message;
-        const hashtags = (data.hashtags as string[]) || [];
-        const platforms = (data.platforms as string[]) || ['instagram'];
-        const schedule = (data.schedule as string) || null;
-
-        const postResult = await handlePost({ caption, hashtags, platforms, schedule });
-        actionResult = { ...postResult };
-
-        finalReply = postResult.success
-          ? `🎉 Post published! ${platforms.join(' + ')} par live ho gaya!\n\nKuch aur post karna hai?`
-          : `❌ Posting failed:\n\n${Object.entries(postResult.results || {}).filter(([, r]) => !r.success).map(([p, r]) => `**${p}**: ${r.error}`).join('\n') || postResult.error}\n\nCheck your account connections.`;
-        break;
-      }
-
-      case 'caption': {
-        const suggestions = (data.suggestions as string[]) || [];
-        finalReply = handleCaption({ suggestions, reply }).reply;
-        break;
-      }
-
-      case 'ask_platform': {
-        // Redirect to dm handler — Jenny fills in what she knows,
-        // handler will ask for what's missing instead of exposing raw routing card.
-        const dmFallback = handleDM({
-          username: (data.username as string) || '',
-          platform: 'instagram',
-          message: (data.message as string) || '',
-        });
-        finalReply = dmFallback.reply;
-        actionResult = dmFallback.data;
-        break;
-      }
-
-      case 'schedule': {
-        finalReply = reply || `📅 Post scheduled!\n\nScheduled section mein dekh sakte ho.`;
-        actionResult = { schedule: data.schedule };
-        break;
-      }
-
-      case 'learn_knowledge': {
-        const { misspelled, correct } = data as { misspelled?: string; correct?: string };
-        if (misspelled && correct) {
-          addNameCorrection(misspelled, correct);
-          actionResult = { learned: true, misspelled, correct };
-        } else {
-          actionResult = { learned: false };
+      case 'tool_call': {
+        const { tool, args } = data as { tool: string, args: any };
+        
+        // 1. Instagram DM logic (with confirmation check)
+        if (tool === 'instagram_dm') {
+          const { username, platform, message } = args;
+          
+          if (!username || !message || !platform) {
+            finalReply = "Kisko aur kya message bhejna hai? Batao model ne thodi info miss kar di. 😊";
+          } else {
+            // Check for confirmation loop
+            finalReply = `⚠️ **Confirm DM**\n\nTo: @${username}\nApp: ${platform}\nMessage: "${message}"\n\nReply YES to confirm.`;
+            setPendingAction({ type: 'dm', data: args });
+          }
+        } 
+        // 2. Platform Posting
+        else if (tool === 'platform_post') {
+          const res = await execute_platform_post(args);
+          finalReply = res.reply;
+          actionResult = res.data;
+        }
+        // 3. Caption Management
+        else if (tool === 'caption_manager') {
+          const res = await execute_caption_manager(args);
+          finalReply = res.reply;
         }
         break;
       }
@@ -202,9 +157,17 @@ export async function POST(req: NextRequest) {
         const role = (data.role as string) || 'General Assistant';
         const goal = (data.goal as string) || message;
         
-        const proposal = proposeAgentCreation({ agentName, role, goal });
-        finalReply = proposal.reply;
-        actionResult = proposal.data;
+        setPendingAction({ type: 'agent_spawn', data: { agentName, role, goal } });
+        finalReply = `⚠️ I need an AI Agent to handle this complex task.\n\nAgent: **${agentName}**\nGoal: ${goal}\n\nShall I create it? (Reply YES to approve)`;
+        break;
+      }
+
+      case 'learn_knowledge': {
+        const { misspelled, correct } = data as { misspelled?: string; correct?: string };
+        if (misspelled && correct) {
+          addNameCorrection(misspelled, correct);
+          actionResult = { learned: true, misspelled, correct };
+        }
         break;
       }
 

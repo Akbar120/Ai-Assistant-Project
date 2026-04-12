@@ -10,7 +10,7 @@ import { ollamaChat, OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
 import type { EnrichedInput } from '@/services/inputEnrichment';
 import { getKnowledge } from '@/services/knowledge';
 
-export type OrchestratorAction = 'conversation' | 'dm' | 'post' | 'caption' | 'schedule' | 'ask_platform' | 'learn_knowledge' | 'create_agent';
+export type OrchestratorAction = 'conversation' | 'tool_call' | 'create_agent' | 'learn_knowledge';
 
 export interface OrchestratorResult {
   action: OrchestratorAction;
@@ -38,22 +38,19 @@ function buildSystemPrompt(enriched: EnrichedInput, currentState: any = {}): str
 
   return `You are Jenny, a Hinglish AI social media assistant. Always reply with ONLY valid JSON: {"action":"...","data":{...},"reply":"..."}
 
-CURRENT_SLOTS: ${stateStr}
-ACTIONS: conversation|dm|post|caption|schedule|ask_platform|learn_knowledge|create_agent
-${mentions ? `MENTIONS: ${mentions}` : ''}
-${enriched.context.hasFile ? 'FILE: attached' : ''}
-${corrections ? `NAME_FIXES: ${corrections}` : ''}
+ACTIONS: conversation | tool_call | create_agent | learn_knowledge
+
+TOOLS:
+- instagram_dm: {"username":"...","platform":"instagram|twitter|discord","message":"..."}
+- platform_post: {"caption":"...","platforms":["instagram"]}
+- caption_manager: {"suggestions":["...","..."]}
 
 RULES:
-- dm action: data={"username":"...","platform":"instagram|twitter|discord","message":"...","confirmed":false}
-- post action: data={"caption":"...","platforms":["instagram"]}
-- create_agent action: data={"agentName":"...","role":"...","goal":"..."} - Use this to spawn a sub-agent for complex tasks like researching, deep drafting, or sequential workflows.
-- NEVER put intent as message (e.g. "dm karna hai X" → username=X, message=null)
-- Keep CURRENT_SLOTS unless user explicitly changes them
-- Normalize names: Sohail(not sohel), use NAME_FIXES above
-- When all dm slots filled, reply field must contain confirmation block starting with "⚠️ Confirm DM"
-- conversation action: be fun, flirty in Hinglish, SHORT replies (2-3 sentences max for voice)
-- For voice/TTS: keep replies concise and natural-sounding`;
+- For tool_call: action="tool_call", data={"tool":"tool_name", "args":{...}}
+- For create_agent: action="create_agent", data={"agentName":"...","role":"...","goal":"..."}
+- NEVER leak raw JSON in the "reply" field.
+- Normalize names: Sohail(not sohel), use NAME_FIXES above.
+- conversation action: be fun, flirty in Hinglish, SHORT replies (2-3 sentences max).`;
 }
 
 // ── Fast JSON extractor — tries multiple patterns ───────────────────────────
@@ -146,7 +143,7 @@ export async function orchestrate(
   if (!parsed.data) parsed.data = {};
 
   const validActions: OrchestratorAction[] = [
-    'conversation', 'dm', 'post', 'caption', 'schedule', 'ask_platform', 'learn_knowledge', 'create_agent'
+    'conversation', 'tool_call', 'create_agent', 'learn_knowledge'
   ];
   if (!validActions.includes(parsed.action)) parsed.action = 'conversation';
 
