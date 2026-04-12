@@ -48,6 +48,7 @@ EXISTING_AGENTS: ${agentList || 'None'}
 
 TOOLS:
 - instagram_dm: {"username":"...","platform":"instagram|twitter|discord","message":"..."}
+- instagram_fetch: {} (checks for unread dms)
 - platform_post: {"caption":"...","platforms":["instagram"]}
 - caption_manager: {"suggestions":["...","..."]}
 

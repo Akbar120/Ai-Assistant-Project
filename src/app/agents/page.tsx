@@ -27,12 +27,14 @@ export default function AgentsDashboard() {
     fetchAgents();
   };
 
-  const updateConfig = async (id: string | null, maxTokens?: number, useRotorQuant?: boolean, overallLimit?: number) => {
+  const updateConfig = async (id: string | null, maxTokens?: number, useRotorQuant?: boolean, overallLimit?: number, isAutonomous?: boolean, pollingInterval?: number) => {
     const payload: any = { action: 'updateConfig' };
     if (id) payload.agentId = id;
     if (maxTokens !== undefined) payload.maxTokens = maxTokens;
     if (useRotorQuant !== undefined) payload.useRotorQuant = useRotorQuant;
     if (overallLimit !== undefined) payload.overallLimit = overallLimit;
+    if (isAutonomous !== undefined) payload.isAutonomous = isAutonomous;
+    if (pollingInterval !== undefined) payload.pollingInterval = pollingInterval;
     
     await fetch('/api/agents', {
       method: 'POST',
@@ -165,7 +167,39 @@ export default function AgentsDashboard() {
                       
                       <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
 
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 10 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={agent.isAutonomous} 
+                            onChange={e => updateConfig(agent.id, undefined, undefined, undefined, e.target.checked)} 
+                            style={{ scale: '1.2' }}
+                          />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>Autonomous Tracking</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Universal polling & monitoring</div>
+                          </div>
+                        </label>
+
+                        {agent.isAutonomous && (
+                          <div style={{ paddingLeft: 24 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>Interval</span>
+                              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{Math.round(agent.pollingInterval / 60000)} mins</span>
+                            </div>
+                            <input 
+                              type="range" min={1 * 60000} max={60 * 60000} step={1 * 60000}
+                              value={agent.pollingInterval}
+                              onChange={e => updateConfig(agent.id, undefined, undefined, undefined, undefined, parseInt(e.target.value))}
+                              style={{ width: '100%', height: 4, accentColor: 'var(--accent)' }} 
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
+
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
                         <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 10 }}>
                           <input 
                             type="checkbox" 
@@ -174,8 +208,8 @@ export default function AgentsDashboard() {
                             style={{ scale: '1.2' }}
                           />
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>RotorQuant Compression</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Experimental KV optimization</div>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>RotorQuant</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>KV optimization</div>
                           </div>
                         </label>
                       </div>
@@ -185,7 +219,7 @@ export default function AgentsDashboard() {
                           <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
                           <div style={{ display: 'flex', alignItems: 'center' }}>
                             <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={e => killAgent(agent.id, e)}>
-                              🛑 Manual Sleep
+                              🛑 Off
                             </button>
                           </div>
                         </>

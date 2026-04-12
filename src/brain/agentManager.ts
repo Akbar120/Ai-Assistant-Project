@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { ollamaChat } from '@/lib/ollama';
+import { orchestrate } from './orchestrator';
+import { runTool } from './tools';
+import { addAgentNotification } from './state';
 
 export interface Agent {
   id: string;
@@ -13,6 +16,8 @@ export interface Agent {
   useRotorQuant: boolean;
   skills: string[];
   tools: string[];
+  isAutonomous: boolean;
+  pollingInterval: number; // in milliseconds
 }
 
 export interface AgentStore {
@@ -52,7 +57,9 @@ export function spawnAgent(name: string, role: string, goal: string): Agent {
     maxTokens: 4096, // Virtual KV Cache suppressor limit
     useRotorQuant: false,
     skills: [],
-    tools: []
+    tools: [],
+    isAutonomous: false,
+    pollingInterval: 300000 // 5 minutes default
   };
 
   store.agents[agent.id] = agent;
@@ -104,41 +111,59 @@ export function logAgentAction(id: string, message: string) {
 }
 
 // Background Worker for the Agent
-async function runAgentWorker(id: string) {
+export async function runAgentWorker(id: string) {
   const store = getAgentStore();
-  const agent = store.agents[id];
+  let agent = store.agents[id];
   if (!agent) return;
 
-  try {
-    logAgentAction(id, `Thinking about how to accomplish: ${agent.goal}`);
-    
-    const messages = [
-      { role: 'system' as const, content: `You are ${agent.name}, an AI Agent acting as ${agent.role}. Your goal is: ${agent.goal}. Return a short summary of how you plan to accomplish this.` },
-      { role: 'user' as const, content: 'Begin your task.' }
-    ];
+  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-    // KV Cache suppression mechanism:
-    // We restrict num_ctx to prevent memory stacking, and pass rotorquant flag if toggled.
-    const runOptions: any = {
-      messages,
-      temperature: 0.5,
-      num_ctx: agent.maxTokens, // Restricts active memory!
-    };
+  logAgentAction(id, `Thinking about how to accomplish: ${agent.goal}`);
 
-    if (agent.useRotorQuant) {
-      // Passes custom flag to inference engine backend (llama.cpp)
-      runOptions.kv_cache_type = "rotorquant";
-      logAgentAction(id, `Enabled experimental RotorQuant KV Cache Compression.`);
+  // Loop if autonomous, otherwise run once
+  do {
+    try {
+      // Re-fetch agent state at start of loop in case of dynamic updates
+      const currentStore = getAgentStore();
+      agent = currentStore.agents[id];
+      if (!agent || agent.status === 'sleeping') break;
+
+      const result = await orchestrate(
+        `Continue your task: ${agent.goal}`,
+        [], // no history for workers yet
+        { message: `Continue your task: ${agent.goal}`, context: { mentions: [], hasFile: false, rawInput: agent.goal } }
+      );
+
+      const { action, data, reply } = result;
+
+      if (action === 'tool_call') {
+        const { tool, args } = data as { tool: string, args: any };
+        logAgentAction(id, `Tool Call: ${tool}(${JSON.stringify(args)})`);
+        
+        const toolRes = await runTool(tool, args);
+        logAgentAction(id, `Tool Result: ${toolRes.reply}`);
+
+        // Custom logic: if it was a fetch and found unread messages, notify Jenny/User
+        if (tool === 'instagram_fetch' && (toolRes as any).hasUnread) {
+          addAgentNotification(id, agent.name, toolRes.reply);
+        }
+      } else {
+        logAgentAction(id, `Reply: ${reply}`);
+      }
+
+      if (!agent.isAutonomous) {
+        updateAgentStatus(id, 'completed');
+        logAgentAction(id, `Task marked as completed.`);
+        break;
+      } else {
+        logAgentAction(id, `Autonomous mode active. Sleeping for ${Math.round(agent.pollingInterval / 60000)}m...`);
+        await sleep(agent.pollingInterval);
+      }
+
+    } catch (error: any) {
+      updateAgentStatus(id, 'error');
+      logAgentAction(id, `ERROR: ${error.message}`);
+      break; 
     }
-
-    const reply = await ollamaChat(runOptions);
-    
-    logAgentAction(id, `Executed: ${reply}`);
-    updateAgentStatus(id, 'completed');
-    logAgentAction(id, `Task marked as completed.`);
-
-  } catch (error: any) {
-    updateAgentStatus(id, 'error');
-    logAgentAction(id, `ERROR: ${error.message}`);
-  }
+  } while (agent && agent.isAutonomous);
 }

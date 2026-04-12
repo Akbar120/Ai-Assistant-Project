@@ -18,7 +18,8 @@ import { addNameCorrection } from '@/services/knowledge';
 import { execute_instagram_dm } from '@/brain/tools/instagram_dm';
 import { execute_platform_post } from '@/brain/tools/platform_post';
 import { execute_caption_manager } from '@/brain/tools/caption_manager';
-import { setPendingAction, getPendingAction, clearPendingAction } from '@/brain/state';
+import { runTool } from '@/brain/tools';
+import { setPendingAction, getPendingAction, clearPendingAction, agentNotifications, clearAgentNotifications } from '@/brain/state';
 import { spawnAgent, updateAgent } from '@/brain/agentManager';
 
 export const runtime = 'nodejs';
@@ -116,6 +117,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Inject Agent Notifications into context ───────────────────────────
+    if (agentNotifications.length > 0) {
+      const combinedNote = agentNotifications.map(n => `[AGENT ${n.agentName}]: ${n.text}`).join('\n');
+      userContent = `⚠️ NOTIFICATION FROM YOUR AGENTS:\n${combinedNote}\n\nUser Message: ${userContent}`;
+      clearAgentNotifications(); // Wipe them after presenting to user
+    }
+
     // ── Orchestrate ─────────────────────────────────────────────────────────
     const result = await orchestrate(
       userContent,
@@ -146,16 +154,11 @@ export async function POST(req: NextRequest) {
             setPendingAction({ type: 'dm', data: args });
           }
         } 
-        // 2. Platform Posting
-        else if (tool === 'platform_post') {
-          const res = await execute_platform_post(args);
+        // 2. Automated tool execution (no confirmation needed for fetch/post etc handled by runTool)
+        else {
+          const res = await runTool(tool, args);
           finalReply = res.reply;
-          actionResult = res.data;
-        }
-        // 3. Caption Management
-        else if (tool === 'caption_manager') {
-          const res = await execute_caption_manager(args);
-          finalReply = res.reply;
+          actionResult = (res as any).data;
         }
         break;
       }

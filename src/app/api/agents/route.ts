@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAgentStore, saveAgentStore } from '@/brain/agentManager';
+import { getAgentStore, saveAgentStore, runAgentWorker } from '@/brain/agentManager';
 
 export const runtime = 'nodejs';
 
@@ -20,12 +20,27 @@ export async function POST(req: Request) {
     }
   } else if (body.action === 'updateConfig') {
     if (body.agentId && store.agents[body.agentId]) {
-      store.agents[body.agentId].maxTokens = body.maxTokens ?? store.agents[body.agentId].maxTokens;
-      store.agents[body.agentId].useRotorQuant = body.useRotorQuant ?? store.agents[body.agentId].useRotorQuant;
+      const agent = store.agents[body.agentId];
+      agent.maxTokens = body.maxTokens ?? agent.maxTokens;
+      agent.useRotorQuant = body.useRotorQuant ?? agent.useRotorQuant;
+      
+      const wasAutonomous = agent.isAutonomous;
+      agent.isAutonomous = body.isAutonomous ?? agent.isAutonomous;
+      agent.pollingInterval = body.pollingInterval ?? agent.pollingInterval;
+
+      // If we just turned ON autonomous mode, we should ensure the worker starts running
+      if (agent.isAutonomous && !wasAutonomous) {
+         agent.status = 'running';
+         agent.logs.push(`[SYSTEM] Autonomous Mode enabled. Interval: ${Math.round(agent.pollingInterval / 60000)}m`);
+         saveAgentStore(store);
+         runAgentWorker(body.agentId);
+      } else {
+         saveAgentStore(store);
+      }
     } else if (body.overallLimit) {
       store.overallKvLimit = body.overallLimit;
+      saveAgentStore(store);
     }
-    saveAgentStore(store);
   }
 
   return NextResponse.json({ success: true });

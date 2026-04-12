@@ -21,3 +21,20 @@ export function getPendingAction() {
 export function clearPendingAction() {
   pendingAction = null;
 }
+
+export let agentNotifications: { agentId: string, agentName: string, text: string, timestamp: string }[] = [];
+
+export function addAgentNotification(agentId: string, agentName: string, text: string) {
+  agentNotifications.push({
+    agentId,
+    agentName,
+    text,
+    timestamp: new Date().toLocaleTimeString()
+  });
+  // Keep only last 10 notifications to avoid memory bloat
+  if (agentNotifications.length > 10) agentNotifications.shift();
+}
+
+export function clearAgentNotifications() {
+  agentNotifications = [];
+}

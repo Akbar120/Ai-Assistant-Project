@@ -287,15 +287,35 @@ function MentionDropdown({
 const WELCOME_CONTENT = `👋 Hey! I'm **Jenny** — tumhari smart aur thodi si flirty AI social media partner. ✨\n\n**Main kya kar sakti hoon?**\n1. 📸 **Image upload karo** (📎 button use karke)\n2. 🧠 Main use **analyze karke** mast captions suggest karungi\n3. 🎯 **Tum choose karo** — Post, Story, ya edit\n4. 🚀 Aur main directly **publish kar dungi**!\n\nAap mujhse bas baatein bhi kar sakte ho, main bore nahi hone dungi! 😉`;
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>(() => [{
-    id: 'welcome',
-    role: 'ai',
-    content: WELCOME_CONTENT,
-    timestamp: '',  // set client-side only via useEffect to avoid hydration mismatch
-  }]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // ── Session Persistence ────────────────────────────────────────────────────
+  useEffect(() => {
+    const saved = sessionStorage.getItem('jenny_chat_history');
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to restore chat history:', e);
+      }
+    } else {
+      setMessages([{
+        id: 'welcome',
+        role: 'ai',
+        content: WELCOME_CONTENT,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem('jenny_chat_history', JSON.stringify(messages));
+    }
+  }, [messages]);
 
   // Agent state
   const [agentStage, setAgentStage] = useState<AgentStage>('idle');
