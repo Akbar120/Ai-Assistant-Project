@@ -1,146 +1,150 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 
 type AppStatus = 'LOADING' | 'PASSIVE' | 'ACTIVE' | 'THINKING' | 'ERROR' | 'DISCONNECTED';
 
-const getApiBase = () => {
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  return 'http://localhost:3000';
-};
+const getApiBase = () =>
+  typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
 export default function VoiceWidgetPage() {
   const [lastTranscript, setLastTranscript] = useState('');
   const [lastReply, setLastReply] = useState('');
   const [status, setStatus] = useState<AppStatus>('DISCONNECTED');
   const [ttsStatus, setTtsStatus] = useState<'idle' | 'playing'>('idle');
-  const [isConversationMode, setIsConversationMode] = useState(false);
   const [micLevel, setMicLevel] = useState<number>(0);
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const statusWatchdog = useRef<NodeJS.Timeout | null>(null);
 
-  const getIpc = () => {
-    if (typeof window !== 'undefined' && (window as any).require) {
-      return (window as any).require('electron').ipcRenderer;
+  // ── Send text to Python TTS via WebSocket ───────────────────────────────
+  // Strips all markdown and unicode surrogates before sending to Python.
+  const cleanForTTS = useCallback((text: string): string => {
+    return text
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/[*_#`>~]/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[\uD800-\uDFFF]/g, '')  // strip surrogate pairs (emojis)
+      .replace(/[\u2600-\u27BF\u2300-\u23FF]/g, '') // strip symbol emojis
+      .trim();
+  }, []);
+
+  const sendTTS = useCallback((text: string) => {
+    const cleaned = cleanForTTS(text);
+    if (cleaned.length > 2 && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'speak', text: cleaned }));
     }
-    return null;
-  };
+  }, [cleanForTTS]);
 
-  const showSelf = () => getIpc()?.send('show-voice-widget');
+  // ── Send ALL sentences to Python at once so it can pre-download in parallel
+  // Python's download_worker + play_worker handle internal queuing — no round-
+  // trip ACK needed. This eliminates the inter-sentence gap.
+  const queueSentences = useCallback((sentences: string[]) => {
+    if (!sentences.length) return;
+    sentences.forEach(s => sendTTS(s));
+  }, [sendTTS]);
+
+  const getIpc = () =>
+    typeof window !== 'undefined' && (window as any).require
+      ? (window as any).require('electron').ipcRenderer
+      : null;
+
+  const showSelf  = () => getIpc()?.send('show-voice-widget');
   const hideWidget = () => getIpc()?.send('hide-voice-widget');
   const pushToMainChat = (userText: string, aiText: string) =>
     getIpc()?.send('voice-to-chat', { userText, aiText });
 
-  const setPythonConversationMode = (val: boolean) => {
-     if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'set_conversation', value: val }));
-     }
-  };
-
   const manualSleep = () => {
-     if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'sleep' }));
-     }
-     setStatus('PASSIVE');
-     setLastReply('');
-     setLastTranscript('');
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'sleep' }));
+    }
+    setStatus('PASSIVE');
+    setLastReply('');
+    setLastTranscript('');
   };
 
-  // Watchdog to prevent 'stuck' state
-  useEffect(() => {
-    if (statusWatchdog.current) clearTimeout(statusWatchdog.current);
-    if (status === 'THINKING' || ttsStatus === 'playing') {
-        statusWatchdog.current = setTimeout(() => {
-            console.log('[Watchdog] Resetting stuck state');
-            setTtsStatus('idle');
-            setStatus('PASSIVE');
-        }, 30000); // 30s max for any single reply
-    }
-    return () => { if (statusWatchdog.current) clearTimeout(statusWatchdog.current); };
-  }, [status, ttsStatus]);
-
-  const sendToTTS = (text: string) => {
-    const cleaned = text
-      .replace(/```[\s\S]*?```/g, '')
-      .replace(/[*_#`>~]/g, '')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .trim();
-
-    if (cleaned && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'speak', text: cleaned }));
-    }
-  };
-
-  const handleStreamingResponse = async (text: string) => {
+  // ── Main API call — voice mode with sentence array ──────────────────────
+  const handleTranscript = useCallback(async (text: string) => {
     setLastTranscript(text);
     setLastReply('');
     setStatus('THINKING');
 
     try {
-      const apiBase = getApiBase();
       const fd = new FormData();
       fd.append('message', text);
-      fd.append('history', '[]'); 
+      fd.append('history', '[]');
+      fd.append('voice', '1'); // Ask API for sentences array
 
-      const res = await fetch(`${apiBase}/api/chat`, { method: 'POST', body: fd });
+      const res = await fetch(`${getApiBase()}/api/chat`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      
-      const data = await res.json();
-      const fullReply = data.reply || '';
-      
-      const sanitizedVisual = fullReply.includes('```json') 
-        ? fullReply.replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '[Task Generated]')
-        : fullReply;
 
-      setLastReply(sanitizedVisual);
-      
-      if (fullReply) {
-        sendToTTS(fullReply);
+      const data = await res.json();
+      const fullReply: string = data.reply || '';
+      const sentences: string[] = data.sentences || [];
+
+      // Show text in widget
+      const visual = fullReply
+        .replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '[Task Generated]')
+        .trim();
+      setLastReply(visual);
+
+      // ── START TTS IMMEDIATELY with sentences ───────────────────────────
+      // API pre-splits reply into sentences — we queue them all right away.
+      // First sentence fires immediately, rest drain as TTS finishes each one.
+      if (sentences.length > 0) {
+        queueSentences(sentences);
+      } else if (fullReply) {
+        // Fallback: send full reply
+        sendTTS(fullReply);
       }
-      
+
       pushToMainChat(text, fullReply);
 
     } catch (e: any) {
       console.error('[VoiceWidget] Error:', e);
-      const errMsg = 'Connection failed.';
+      const errMsg = 'Sorry, connection failed.';
       setLastReply(errMsg);
-      sendToTTS(errMsg);
+      sendTTS(errMsg);
     } finally {
       setStatus('PASSIVE');
     }
-  };
+  }, [queueSentences, sendTTS]);
 
+
+  // ── WebSocket connection ─────────────────────────────────────────────────
   useEffect(() => {
     mountedRef.current = true;
+
     const connect = () => {
       if (!mountedRef.current) return;
       const ws = new WebSocket('ws://127.0.0.1:8010');
+
       ws.onopen = () => {
         if (!mountedRef.current) { ws.close(); return; }
-        console.log('[VoiceWidget] Connected');
-        // Sync conversation mode on connect
-        ws.send(JSON.stringify({ type: 'set_conversation', value: isConversationMode }));
+        console.log('[VoiceWidget] Connected to voice engine');
       };
 
       ws.onmessage = (evt) => {
         try {
           const data = JSON.parse(evt.data);
+
           if (data.type === 'status') {
             const newState = data.state as AppStatus;
             setStatus(newState);
             if (newState === 'ACTIVE') showSelf();
+
           } else if (data.type === 'transcript') {
-            handleStreamingResponse(data.text);
+            handleTranscript(data.text);
+
           } else if (data.type === 'tts_status') {
-             setTtsStatus(data.status);
+            // Python signals playing/idle — just mirror it in UI state
+            setTtsStatus(data.status);
+
           } else if (data.type === 'mic_volume') {
-             setMicLevel(data.rms);
+            setMicLevel(data.rms);
           }
-        } catch (e) {}
+        } catch {}
       };
 
       ws.onclose = () => {
@@ -148,48 +152,48 @@ export default function VoiceWidgetPage() {
         setStatus('DISCONNECTED');
         reconnectRef.current = setTimeout(connect, 3000);
       };
+
       wsRef.current = ws;
     };
+
     connect();
+
     return () => {
       mountedRef.current = false;
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       wsRef.current?.close();
     };
-  }, []);
+  }, [handleTranscript]);
 
+  // ── Auto-hide after conversation ───────────────────────────────────────
   useEffect(() => {
     if (status === 'PASSIVE' && ttsStatus === 'idle') {
-      const timer = setTimeout(() => {
-        if (!isConversationMode) hideWidget();
-      }, 12000);
+      const timer = setTimeout(() => hideWidget(), 12000);
       return () => clearTimeout(timer);
     }
-  }, [status, ttsStatus, isConversationMode]);
+  }, [status, ttsStatus]);
 
-  // Auto-scroll chat area
+  // ── Auto-scroll ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [lastReply]);
 
-  const isListening = status === 'ACTIVE' && ttsStatus === 'idle' && !lastReply; // Initial listening
-  const isThinking = status === 'THINKING';
-  const isSpeaking = ttsStatus === 'playing' || (status === 'ACTIVE' && lastReply !== '');
-  const isLive = isListening || isThinking || isSpeaking;
+  const isListening = status === 'ACTIVE' && ttsStatus === 'idle' && !lastReply;
+  const isThinking  = status === 'THINKING';
+  const isSpeaking  = ttsStatus === 'playing';
+  const isLive      = isListening || isThinking || isSpeaking;
+
+  const accentColor = isSpeaking ? '#ec4899' : isThinking ? '#6366f1' : '#14b8a6';
 
   const statusLabel = () => {
     if (status === 'DISCONNECTED') return 'Core offline';
-    if (status === 'LOADING') return 'Loading intelligence...';
-    if (isSpeaking)  return 'Jenny is replying';
-    if (isThinking)  return 'Synthesizing response...';
-    if (isListening) return 'Listening to you...';
-    if (status === 'ERROR') return 'Audio Error';
-    return 'Systems normal';
+    if (status === 'LOADING')      return 'Loading...';
+    if (isSpeaking)                return 'Jenny is speaking';
+    if (isThinking)                return 'Thinking...';
+    if (isListening)               return 'Listening...';
+    if (status === 'ERROR')        return 'Audio Error';
+    return 'Ready';
   };
-
-  const accentColor = isSpeaking ? '#ec4899' : isThinking ? '#6366f1' : '#14b8a6';
 
   return (
     <div
@@ -206,8 +210,7 @@ export default function VoiceWidgetPage() {
         backdropFilter: 'blur(32px) saturate(180%)',
         borderRadius: 32,
         border: `1px solid ${isLive ? `${accentColor}50` : 'rgba(255,255,255,0.06)'}`,
-        width: '100%',
-        height: '100%',
+        width: '100%', height: '100%',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         padding: '24px 20px',
         boxShadow: isLive
@@ -217,11 +220,10 @@ export default function VoiceWidgetPage() {
         transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
         overflow: 'hidden',
       }}>
-        
-        {/* Sleek top drag bar indicator */}
+
         <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 20 }} />
 
-        {/* Close Button */}
+        {/* Close */}
         <button
           onClick={(e) => { e.stopPropagation(); hideWidget(); }}
           style={{
@@ -229,149 +231,138 @@ export default function VoiceWidgetPage() {
             background: 'rgba(255,255,255,0.05)', border: 'none',
             color: 'rgba(255,255,255,0.4)', borderRadius: '50%',
             width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', fontSize: 16,
-            WebkitAppRegion: 'no-drag',
+            cursor: 'pointer', fontSize: 16, WebkitAppRegion: 'no-drag',
             transition: 'background 0.2s',
           } as any}
-          onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-          onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+          onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+          onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
         >×</button>
 
-        {/* AI Orb - Click to Sleep/Reset */}
-        <div 
+        {/* Orb */}
+        <div
           onClick={manualSleep}
-          style={{ 
-            position: 'relative', width: 90, height: 90, 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', 
-            marginBottom: 10, cursor: 'pointer', WebkitAppRegion: 'no-drag' 
+          style={{
+            position: 'relative', width: 90, height: 90,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 10, cursor: 'pointer', WebkitAppRegion: 'no-drag',
           } as any}
           title="Click to put Jenny to sleep"
         >
-            {/* Outer Aura Ring */}
-            <div style={{
-                position: 'absolute',
-                inset: -10,
-                borderRadius: '50%',
-                background: `linear-gradient(135deg, ${accentColor}, transparent)`,
-                opacity: isLive ? 0.4 : 0,
-                filter: 'blur(15px)',
-                animation: isLive ? 'spin 4s linear infinite' : 'none',
-                transition: 'opacity 0.5s ease',
-            }} />
-            
-            {/* Core Orb */}
-            <div style={{
-                width: 76, height: 76, borderRadius: '50%',
-                background: `linear-gradient(135deg, #111, #222)`,
-                boxShadow: `inset 0 0 20px ${accentColor}80, 0 4px 20px rgba(0,0,0,0.8)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                position: 'relative',
-                zIndex: 2,
-                border: `1px solid ${accentColor}40`,
-                transition: 'all 0.4s ease',
-                transform: isSpeaking ? 'scale(1.05)' : 'scale(1)'
-            }}>
-                <span style={{ fontSize: 32, filter: isLive ? `drop-shadow(0 0 10px ${accentColor})` : 'none', transition: 'all 0.3s' }}>
-                   {isSpeaking ? '🔮' : isThinking ? '⚡' : isListening ? '🎙️' : '✨'}
-                </span>
-            </div>
-
-            {/* Speaking Ripple Rings */}
-            {isSpeaking && (
-                <>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `1px solid ${accentColor}`, animation: 'ripple 1.5s linear infinite' }} />
-                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `1px solid ${accentColor}`, animation: 'ripple 1.5s linear infinite 0.75s' }} />
-                </>
-            )}
+          <div style={{
+            position: 'absolute', inset: -10, borderRadius: '50%',
+            background: `linear-gradient(135deg, ${accentColor}, transparent)`,
+            opacity: isLive ? 0.4 : 0, filter: 'blur(15px)',
+            animation: isLive ? 'spin 4s linear infinite' : 'none',
+            transition: 'opacity 0.5s ease',
+          }} />
+          <div style={{
+            width: 76, height: 76, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #111, #222)',
+            boxShadow: `inset 0 0 20px ${accentColor}80, 0 4px 20px rgba(0,0,0,0.8)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'relative', zIndex: 2,
+            border: `1px solid ${accentColor}40`,
+            transition: 'all 0.4s ease',
+            transform: isSpeaking ? 'scale(1.05)' : 'scale(1)',
+          }}>
+            <span style={{ fontSize: 32, filter: isLive ? `drop-shadow(0 0 10px ${accentColor})` : 'none', transition: 'all 0.3s' }}>
+              {isSpeaking ? '🔮' : isThinking ? '⚡' : isListening ? '🎙️' : '✨'}
+            </span>
+          </div>
+          {isSpeaking && (
+            <>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `1px solid ${accentColor}`, animation: 'ripple 1.5s linear infinite' }} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `1px solid ${accentColor}`, animation: 'ripple 1.5s linear infinite 0.75s' }} />
+            </>
+          )}
         </div>
 
-        {/* Minimalist Status Text */}
-        <h3 style={{ 
-            fontSize: 14, fontWeight: 500, margin: '0 0 20px', 
-            letterSpacing: 0.5, color: 'rgba(255,255,255,0.9)',
-            textTransform: 'uppercase'
+        {/* Status */}
+        <h3 style={{
+          fontSize: 14, fontWeight: 500, margin: '0 0 20px',
+          letterSpacing: 0.5, color: 'rgba(255,255,255,0.9)',
+          textTransform: 'uppercase',
         }}>
           {statusLabel()}
         </h3>
 
-        {/* Conversation Stream Area */}
-        <div 
+        {/* Conversation stream */}
+        <div
           ref={scrollRef}
-          style={{ 
-            width: '100%', flex: 1, overflowY: 'auto', 
+          style={{
+            width: '100%', flex: 1, overflowY: 'auto',
             display: 'flex', flexDirection: 'column', gap: 14,
             paddingRight: 4, paddingBottom: 10,
-            WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)' // Gradual fade at top
-        }}>
+            WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)',
+          }}
+        >
           {lastTranscript && (
             <div style={{ alignSelf: 'flex-end', maxWidth: '90%' }}>
-                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 4, textAlign: 'right', fontWeight: 600 }}>YOU SAID</p>
-                <div style={{
-                    background: 'rgba(255,255,255,0.08)', borderRadius: '16px 16px 4px 16px',
-                    padding: '10px 14px', fontSize: 13, color: 'rgba(255,255,255,0.9)',
-                    lineHeight: 1.4, backdropFilter: 'blur(10px)'
-                }}>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 4, textAlign: 'right', fontWeight: 600 }}>YOU</p>
+              <div style={{
+                background: 'rgba(255,255,255,0.08)', borderRadius: '16px 16px 4px 16px',
+                padding: '10px 14px', fontSize: 13, color: 'rgba(255,255,255,0.9)',
+                lineHeight: 1.4, backdropFilter: 'blur(10px)',
+              }}>
                 {lastTranscript}
-                </div>
+              </div>
             </div>
           )}
 
           {lastReply && (
             <div style={{ alignSelf: 'flex-start', maxWidth: '90%' }}>
-               <p style={{ fontSize: 9, color: `${accentColor}99`, marginBottom: 4, fontWeight: 600 }}>JENNY</p>
-               <div style={{
-                    background: `linear-gradient(135deg, ${accentColor}15, transparent)`, 
-                    borderRadius: '16px 16px 16px 4px',
-                    borderLeft: `2px solid ${accentColor}`,
-                    padding: '10px 14px', fontSize: 13, color: 'rgba(255,255,255,0.95)',
-                    lineHeight: 1.5
-                }}>
-                {/* Simulated streaming typing cursor */}
+              <p style={{ fontSize: 9, color: `${accentColor}99`, marginBottom: 4, fontWeight: 600 }}>JENNY</p>
+              <div style={{
+                background: `linear-gradient(135deg, ${accentColor}15, transparent)`,
+                borderRadius: '16px 16px 16px 4px',
+                borderLeft: `2px solid ${accentColor}`,
+                padding: '10px 14px', fontSize: 13, color: 'rgba(255,255,255,0.95)',
+                lineHeight: 1.5,
+              }}>
                 {lastReply}
-                {isThinking && <span style={{display: 'inline-block', width: 4, height: 12, background: accentColor, marginLeft: 4, animation: 'blink 1s infinite'}} />}
-               </div>
+                {isThinking && (
+                  <span style={{ display: 'inline-block', width: 4, height: 12, background: accentColor, marginLeft: 4, animation: 'blink 1s infinite' }} />
+                )}
+              </div>
             </div>
           )}
 
           {!lastTranscript && !lastReply && (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center', margin: 0 }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center', margin: 0 }}>
                 {status === 'DISCONNECTED' || status === 'LOADING'
-                    ? 'Engine is offline...'
-                    : 'Awaiting your command...'}
-                </p>
+                  ? 'Engine is offline...'
+                  : 'Awaiting your command...'}
+              </p>
             </div>
           )}
         </div>
 
-        {/* Bottom Audio Wave Bar */}
+        {/* Audio visualizer */}
         {isLive && (
-            <div style={{ 
-                height: 12, width: '100%', display: 'flex', gap: 2, 
-                alignItems: 'center', justifyContent: 'center', marginTop: 'auto' 
-            }}>
+          <div style={{
+            height: 12, width: '100%', display: 'flex', gap: 2,
+            alignItems: 'center', justifyContent: 'center', marginTop: 'auto',
+          }}>
             {[...Array(12)].map((_, i) => {
-                // Determine height: idle animation vs. active mic input
-                const isIdleAnim = micLevel < 0.005;
-                const baseHeight = isIdleAnim ? (2 + (i % 3)) : Math.max(2, Math.min(12, micLevel * 200 + Math.random() * 4));
-                
-                return (
-                  <div key={i} style={{
+              const isIdle = micLevel < 0.005;
+              const h = isIdle ? (2 + i % 3) : Math.max(2, Math.min(12, micLevel * 200 + Math.random() * 4));
+              return (
+                <div key={i} style={{
                   width: 4, borderRadius: 2,
-                  background: accentColor,
-                  opacity: 0.8,
-                  animationName: isIdleAnim ? 'waveform-bounce' : 'none',
-                  animationDuration: isIdleAnim ? `0.${5+i%4}s` : '0s',
+                  background: accentColor, opacity: 0.8,
+                  animationName: isIdle ? 'waveform-bounce' : 'none',
+                  animationDuration: isIdle ? `0.${5 + i % 4}s` : '0s',
                   animationTimingFunction: 'ease-in-out',
                   animationIterationCount: 'infinite',
                   animationDirection: 'alternate',
-                  animationDelay: isIdleAnim ? `${i * 0.05}s` : '0s',
-                  height: `${baseHeight}px`,
+                  animationDelay: isIdle ? `${i * 0.05}s` : '0s',
+                  height: `${h}px`,
                   transition: 'height 0.1s ease-out',
-                  }} />
-                );
+                }} />
+              );
             })}
-            </div>
+          </div>
         )}
       </div>
 
@@ -380,7 +371,6 @@ export default function VoiceWidgetPage() {
         @keyframes ripple { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.6); opacity: 0; } }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         @keyframes waveform-bounce { 0% { height: 2px; } 100% { height: 12px; } }
-        
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }

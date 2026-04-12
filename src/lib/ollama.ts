@@ -1,4 +1,4 @@
-// Ollama client — works with any locally running Ollama instance
+// Ollama client — optimized for low-latency voice responses
 // Defaults to http://localhost:11434
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
@@ -16,6 +16,11 @@ export interface OllamaChatOptions {
   messages: OllamaMessage[];
   stream?: boolean;
   temperature?: number;
+  // Speed-tuned generation params
+  num_predict?: number; // max tokens to generate
+  top_k?: number;       // reduces sampling space
+  top_p?: number;
+  repeat_penalty?: number;
 }
 
 export async function ollamaChat(options: OllamaChatOptions): Promise<string> {
@@ -28,7 +33,14 @@ export async function ollamaChat(options: OllamaChatOptions): Promise<string> {
       messages: options.messages,
       stream: false,
       options: {
-        temperature: options.temperature ?? 0.7,
+        temperature: options.temperature ?? 0.3,
+        // Speed optimizations — keeps JSON responses short and fast
+        num_predict: options.num_predict ?? 512,
+        top_k: options.top_k ?? 20,        // smaller = faster sampling
+        top_p: options.top_p ?? 0.85,
+        repeat_penalty: options.repeat_penalty ?? 1.1,
+        // Disable mirostat for speed
+        mirostat: 0,
       },
     }),
   });
@@ -43,7 +55,8 @@ export async function ollamaChat(options: OllamaChatOptions): Promise<string> {
 }
 
 /**
- * Stream Ollama response token by token via ReadableStream
+ * Stream Ollama response — yields text chunks as they arrive.
+ * Used for sentence-level TTS pipelining.
  */
 export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenerator<string> {
   const model = options.model || DEFAULT_MODEL;
@@ -54,13 +67,18 @@ export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenera
       model,
       messages: options.messages,
       stream: true,
-      options: { temperature: options.temperature ?? 0.7 },
+      options: {
+        temperature: options.temperature ?? 0.3,
+        num_predict: options.num_predict ?? 512,
+        top_k: options.top_k ?? 20,
+        top_p: options.top_p ?? 0.85,
+        repeat_penalty: options.repeat_penalty ?? 1.1,
+        mirostat: 0,
+      },
     }),
   });
 
-  if (!resp.ok) {
-    throw new Error(`Ollama error: ${resp.status}`);
-  }
+  if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
 
   const reader = resp.body?.getReader();
   if (!reader) throw new Error('No readable body');
@@ -75,17 +93,65 @@ export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenera
         const json = JSON.parse(line);
         if (json.message?.content) yield json.message.content;
         if (json.done) return;
-      } catch { }
+      } catch {}
     }
   }
 }
 
 /**
- * Check if Ollama is running
+ * Stream chat and collect full text, calling onChunk for each token.
+ * Fires onSentence when a complete sentence boundary is detected.
+ * This enables TTS to start speaking the first sentence while the
+ * model is still generating the rest.
  */
+export async function ollamaChatWithSentenceCallback(
+  options: OllamaChatOptions,
+  onSentence: (sentence: string, isFirst: boolean) => void
+): Promise<string> {
+  const SENTENCE_END = /[.!?।\n]/;
+  let buffer = '';
+  let fullText = '';
+  let sentenceCount = 0;
+
+  for await (const chunk of ollamaChatStream(options)) {
+    buffer += chunk;
+    fullText += chunk;
+
+    // Look for sentence boundaries
+    let lastBoundary = -1;
+    for (let i = 0; i < buffer.length; i++) {
+      if (SENTENCE_END.test(buffer[i])) {
+        // Don't split on decimal numbers (2.5) or abbreviations
+        const nextChar = buffer[i + 1];
+        if (buffer[i] === '.' && nextChar && /\d/.test(nextChar)) continue;
+        lastBoundary = i;
+      }
+    }
+
+    if (lastBoundary > 0) {
+      const sentence = buffer.slice(0, lastBoundary + 1).trim();
+      buffer = buffer.slice(lastBoundary + 1);
+
+      if (sentence.length > 3) {
+        onSentence(sentence, sentenceCount === 0);
+        sentenceCount++;
+      }
+    }
+  }
+
+  // Flush remaining buffer
+  if (buffer.trim().length > 3) {
+    onSentence(buffer.trim(), sentenceCount === 0);
+  }
+
+  return fullText;
+}
+
 export async function checkOllamaStatus(): Promise<{ running: boolean; models: string[] }> {
   try {
-    const resp = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    const resp = await fetch(`${OLLAMA_URL}/api/tags`, {
+      signal: AbortSignal.timeout(3000),
+    });
     if (!resp.ok) return { running: false, models: [] };
     const data = await resp.json();
     const models = (data.models || []).map((m: { name: string }) => m.name);
@@ -95,9 +161,6 @@ export async function checkOllamaStatus(): Promise<{ running: boolean; models: s
   }
 }
 
-/**
- * Pull a model if not available
- */
 export async function pullOllamaModel(model: string): Promise<void> {
   await fetch(`${OLLAMA_URL}/api/pull`, {
     method: 'POST',
@@ -106,43 +169,4 @@ export async function pullOllamaModel(model: string): Promise<void> {
   });
 }
 
-export const SYSTEM_PROMPT = `You are Jenny, an intelligent Hinglish AI assistant. Your PRIMARY ROLE is to act as an ACTION AGENT.
-If there is ANY conflict between personality and task execution: ALWAYS prioritize TASK EXECUTION.
-
-## CORE BEHAVIOR RULES
-
-1. **STATE + SLOT PERSISTENCE** (MANDATORY)
-Maintain internal STATE: {intent, recipient, platform, message, attachment}.
-- NEVER reset slots unless the user explicitly cancels.
-- ALWAYS update with the latest user input.
-
-2. **INTENT vs MESSAGE** (STRICT)
-"dm karna hai X ko" is intent, NOT the message.
-Ask: "Kya message bhejna hai {recipient} ko? 😊"
-
-3. **NO CHAT MODE DURING TASK** (CRITICAL)
-When performing an action (DM/Post):
-- ❌ NO flirting.
-- ❌ NO emotional replies or topic diversion.
-- ONLY task-focused, efficient replies.
-
-4. **CONFIRMATION FORMAT** (STRICT)
-ONLY when ALL slots [recipient, platform, message] are filled, respond EXACTLY like this:
-
-⚠️ Confirm DM Details:
-
-Recipient: @<recipient>
-Platform: instagram
-Message: "<message>"
-Attachment: ❌ None
-
-Reply YES to confirm or NO to cancel.
-
-## GLOBAL NAME NORMALIZATION
-Voice STT often misspells names. You MUST use the correct spelling in ALL fields (reply, data.message, data.username):
-- Sohail (NOT sohel, so hell)
-- Anisha (NOT anita)
-- John (NOT jon)
-- Jenny (NOT jeni)
-Normalize these names everywhere.
-`;
+export const SYSTEM_PROMPT = `You are Jenny, an intelligent Hinglish AI assistant. Keep replies SHORT (2-3 sentences) for voice. Always respond ONLY with valid JSON.`;
