@@ -9,6 +9,10 @@
  * 5. Parallel file processing
  */
 
+import { NextRequest, NextResponse } from 'next/server';
+import { OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
+import { enrichInput } from '@/services/inputEnrichment';
+import { orchestrate } from '@/brain/orchestrator';
 import { handleConversation } from '@/routers/conversation.router';
 import { addNameCorrection } from '@/services/knowledge';
 import { execute_instagram_dm } from '@/brain/tools/instagram_dm';
