@@ -883,12 +883,26 @@ export default function ChatPage() {
                     )}
                   </div>
                 )}
-                {msg.content && (
+                {msg.content && !msg.content.startsWith('{"action"') && (
                   <div
                     className="chat-bubble"
                     style={msg.role === 'user' ? { borderRadius: '18px 4px 18px 18px' } : { borderRadius: '4px 18px 18px 18px' }}
                     dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }}
                   />
+                )}
+                {/* DM Confirm Buttons */}
+                {msg.role === 'ai' && msg.content.includes('⚠️ **Confirm DM**') && (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>📤 Send DM</button>
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Cancel</button>
+                  </div>
+                )}
+                {/* Agent Spawn Buttons */}
+                {msg.role === 'ai' && msg.content.includes('⚠️ I need an AI Agent') && (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>✅ Approve Agent</button>
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Reject</button>
+                  </div>
                 )}
                 <div className="chat-timestamp" suppressHydrationWarning>{msg.timestamp}</div>
               </div>

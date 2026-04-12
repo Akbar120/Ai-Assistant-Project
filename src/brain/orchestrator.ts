@@ -10,7 +10,7 @@ import { ollamaChat, OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
 import type { EnrichedInput } from '@/services/inputEnrichment';
 import { getKnowledge } from '@/services/knowledge';
 
-export type OrchestratorAction = 'conversation' | 'dm' | 'post' | 'caption' | 'schedule' | 'ask_platform' | 'learn_knowledge';
+export type OrchestratorAction = 'conversation' | 'dm' | 'post' | 'caption' | 'schedule' | 'ask_platform' | 'learn_knowledge' | 'create_agent';
 
 export interface OrchestratorResult {
   action: OrchestratorAction;
@@ -39,7 +39,7 @@ function buildSystemPrompt(enriched: EnrichedInput, currentState: any = {}): str
   return `You are Jenny, a Hinglish AI social media assistant. Always reply with ONLY valid JSON: {"action":"...","data":{...},"reply":"..."}
 
 CURRENT_SLOTS: ${stateStr}
-ACTIONS: conversation|dm|post|caption|schedule|ask_platform|learn_knowledge
+ACTIONS: conversation|dm|post|caption|schedule|ask_platform|learn_knowledge|create_agent
 ${mentions ? `MENTIONS: ${mentions}` : ''}
 ${enriched.context.hasFile ? 'FILE: attached' : ''}
 ${corrections ? `NAME_FIXES: ${corrections}` : ''}
@@ -47,6 +47,7 @@ ${corrections ? `NAME_FIXES: ${corrections}` : ''}
 RULES:
 - dm action: data={"username":"...","platform":"instagram|twitter|discord","message":"...","confirmed":false}
 - post action: data={"caption":"...","platforms":["instagram"]}
+- create_agent action: data={"agentName":"...","role":"...","goal":"..."} - Use this to spawn a sub-agent for complex tasks like researching, deep drafting, or sequential workflows.
 - NEVER put intent as message (e.g. "dm karna hai X" → username=X, message=null)
 - Keep CURRENT_SLOTS unless user explicitly changes them
 - Normalize names: Sohail(not sohel), use NAME_FIXES above
@@ -145,7 +146,7 @@ export async function orchestrate(
   if (!parsed.data) parsed.data = {};
 
   const validActions: OrchestratorAction[] = [
-    'conversation', 'dm', 'post', 'caption', 'schedule', 'ask_platform', 'learn_knowledge',
+    'conversation', 'dm', 'post', 'caption', 'schedule', 'ask_platform', 'learn_knowledge', 'create_agent'
   ];
   if (!validActions.includes(parsed.action)) parsed.action = 'conversation';
 

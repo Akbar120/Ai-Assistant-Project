@@ -13,11 +13,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
 import { enrichInput } from '@/services/inputEnrichment';
 import { orchestrate } from '@/brain/orchestrator';
-import { validateDM, executePendingDM, clearPendingDM, getPendingDM } from '@/routers/dm.router';
+import { handleDM, validateDM, executePendingDM, clearPendingDM, getPendingDM } from '@/routers/dm.router';
 import { handlePost } from '@/routers/post.router';
 import { handleCaption } from '@/routers/caption.router';
 import { handleConversation } from '@/routers/conversation.router';
 import { addNameCorrection } from '@/services/knowledge';
+import { proposeAgentCreation, executePendingAgent, clearPendingAgent, getPendingAgent } from '@/routers/agent.router';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -64,20 +65,34 @@ export async function POST(req: NextRequest) {
     // ── Input Enrichment ────────────────────────────────────────────────────
     const enriched = enrichInput(message, !!file, contactCache);
 
-    // ── DM Confirmation shortcut ────────────────────────────────────────────
-    const pending = getPendingDM();
+    // ── DM / Agent Confirmation shortcut ────────────────────────────────────
+    const pendingDm = getPendingDM();
+    const pendingAgent = getPendingAgent();
     const cleanMsg = message.trim().toLowerCase();
 
     const confirmKeywords = ['yes', 'sahi hai', 'hian', 'kar de', 'bhejde', 'theek hai', 'go ahead', 'okay', 'bhej do'];
     const cancelKeywords = ['no', 'nhi', 'cancel', 'reset', 'abort', 'rehne do', 'nahin', 'naa'];
 
-    if (pending && (confirmKeywords.some(k => cleanMsg.includes(k)) || cancelKeywords.some(k => cleanMsg.includes(k)))) {
-      if (confirmKeywords.some(k => cleanMsg.includes(k))) {
-        const dmResult = await executePendingDM();
-        return NextResponse.json({ reply: dmResult.reply, action: 'dm', result: dmResult });
-      } else {
-        clearPendingDM();
-        return NextResponse.json({ reply: 'Theek hai, task cancel kar diya. 😊 Kuch aur help chahiye?', action: 'conversation' });
+    const isConfirm = confirmKeywords.some(k => cleanMsg.includes(k));
+    const isCancel = cancelKeywords.some(k => cleanMsg.includes(k));
+
+    if ((pendingDm || pendingAgent) && (isConfirm || isCancel)) {
+      if (pendingDm) {
+        if (isConfirm) {
+          const dmResult = await executePendingDM();
+          return NextResponse.json({ reply: dmResult.reply, action: 'dm', result: dmResult });
+        } else {
+          clearPendingDM();
+          return NextResponse.json({ reply: 'Theek hai, task cancel kar diya. 😊 Kuch aur help chahiye?', action: 'conversation' });
+        }
+      } else if (pendingAgent) {
+        if (isConfirm) {
+          const agentResult = executePendingAgent();
+          return NextResponse.json({ reply: agentResult.reply, action: 'create_agent', result: agentResult });
+        } else {
+          clearPendingAgent();
+          return NextResponse.json({ reply: 'Theek hai, agent spawn cancel kar diya.', action: 'conversation' });
+        }
       }
     }
 
@@ -116,21 +131,18 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case 'dm': {
-        const existingPending = getPendingDM();
+        // Pull first user mention from enrichment as fallback for username
         const firstUserMention = enriched.context.mentions.find(m => m.type === 'user');
 
-        const username = (data.username as string) || existingPending?.username || firstUserMention?.value || '';
-        const platform = ((data.platform as string) || existingPending?.platform || firstUserMention?.platform || 'instagram') as 'instagram' | 'twitter' | 'discord';
+        const dmResult = handleDM({
+          username: (data.username as string) || firstUserMention?.value || '',
+          platform: ((data.platform as string) || firstUserMention?.platform || 'instagram') as 'instagram' | 'twitter' | 'discord',
+          message: (data.message as string) || '',
+          hasFile: enriched.context.hasFile,
+        });
 
-        let dmMessage = (data.message as string);
-        if (!dmMessage && existingPending?.message && !finalReply.toLowerCase().includes('message')) {
-          dmMessage = existingPending.message;
-        }
-        if (!dmMessage) dmMessage = '';
-
-        const validation = validateDM({ username, platform, message: dmMessage, hasFile: enriched.context.hasFile });
-        finalReply = validation.reply;
-        actionResult = validation.data;
+        finalReply = dmResult.reply;
+        actionResult = dmResult.data;
         break;
       }
 
@@ -156,10 +168,15 @@ export async function POST(req: NextRequest) {
       }
 
       case 'ask_platform': {
-        const username = (data.username as string) || '';
-        const dmMessage = (data.message as string) || message;
-        finalReply = `⚠️ Kaunse app pe bhejun?\n\nPlease reply with **Instagram** or **Twitter**.`;
-        actionResult = { pendingDm: { username, message: dmMessage } };
+        // Redirect to dm handler — Jenny fills in what she knows,
+        // handler will ask for what's missing instead of exposing raw routing card.
+        const dmFallback = handleDM({
+          username: (data.username as string) || '',
+          platform: 'instagram',
+          message: (data.message as string) || '',
+        });
+        finalReply = dmFallback.reply;
+        actionResult = dmFallback.data;
         break;
       }
 
@@ -177,6 +194,17 @@ export async function POST(req: NextRequest) {
         } else {
           actionResult = { learned: false };
         }
+        break;
+      }
+
+      case 'create_agent': {
+        const agentName = (data.agentName as string) || 'Helper_Agent';
+        const role = (data.role as string) || 'General Assistant';
+        const goal = (data.goal as string) || message;
+        
+        const proposal = proposeAgentCreation({ agentName, role, goal });
+        finalReply = proposal.reply;
+        actionResult = proposal.data;
         break;
       }
 

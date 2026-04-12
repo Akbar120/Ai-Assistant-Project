@@ -1,8 +1,11 @@
 /**
- * DM ROUTER
- * ─────────────────────────────────────────────────────────────
- * Handles Instagram / Twitter / Discord DM logic with safety checks,
- * clarification, and stateful confirmation.
+ * DM ROUTER — Clean stateful confirmation flow
+ * ─────────────────────────────────────────────
+ * Flow:
+ *  orchestrator → dm action with {username, platform, message}
+ *  → if all slots filled: set pendingDm + return confirm card (no double check)
+ *  → user says YES → executePendingDM()
+ *  → result reply goes back through orchestrator reply channel
  */
 
 export interface DmRouterInput {
@@ -14,106 +17,94 @@ export interface DmRouterInput {
 }
 
 export interface DmRouterResult {
-  status: 'clarify' | 'confirm' | 'execute' | 'error' | 'success';
+  status: 'clarify' | 'confirm' | 'error' | 'success';
   reply: string;
   data?: Partial<DmRouterInput>;
   error?: string;
 }
 
-// ─── In-Memory State Store ────────────────────────────────────────────────────
-// Simple singleton to hold pending DMs for confirmation
+// ─── Singleton state ─────────────────────────────────────────────────────────
 let pendingDmStore: DmRouterInput | null = null;
 
 /**
- * validateDM — Checks if we have enough info to propose a DM.
- * Implements clarification and attachment detection.
+ * buildConfirmCard
+ * Returns a clean human-readable confirmation card string for the chat UI.
  */
-export function validateDM(input: Partial<DmRouterInput>): DmRouterResult {
-  const { username, platform, message, hasFile } = input;
-  
-  // Ensure we have a baseline from the existing store if available
-  const current = pendingDmStore || { username: '', platform: 'instagram', message: '', hasFile: false };
+function buildConfirmCard(dm: DmRouterInput): string {
+  return `⚠️ **Confirm DM**
 
-  // Update store with whatever we have now
-  pendingDmStore = {
-    username: username || current.username,
-    platform: (platform as any) || current.platform || 'instagram',
-    message: message || current.message,
-    hasFile: hasFile !== undefined ? !!hasFile : current.hasFile
+📬 **To:** @${dm.username}
+📱 **Platform:** ${dm.platform.charAt(0).toUpperCase() + dm.platform.slice(1)}
+💬 **Message:** "${dm.message}"
+📎 **Attachment:** ${dm.hasFile ? '✅ Yes' : '❌ None'}
+
+Reply **YES** to send or **NO** to cancel.`;
+}
+
+/**
+ * handleDM
+ *
+ * Called by the chat route when orchestrator returns action = 'dm'.
+ * Accepts the fields Jenny extracted. Validates for missing slots.
+ * If all filled, stores as pending and returns confirm card immediately.
+ */
+export function handleDM(input: Partial<DmRouterInput>): DmRouterResult {
+  // Merge with any existing pending state (for multi-turn slot filling)
+  const current = pendingDmStore || { username: '', platform: 'instagram' as const, message: '', hasFile: false };
+
+  const merged: DmRouterInput = {
+    username: (input.username || current.username).replace(/^@/, '').trim(),
+    platform: (input.platform as DmRouterInput['platform']) || current.platform || 'instagram',
+    message: input.message || current.message,
+    hasFile: input.hasFile !== undefined ? !!input.hasFile : current.hasFile,
   };
 
-  const active = pendingDmStore;
+  // Validate required slots
+  if (!merged.username) {
+    return { status: 'clarify', reply: 'Kisko DM karna hai? Naam ya @username batao! 😊' };
+  }
 
-  // 1. Check for missing target
-  if (!active.username) {
+  if (!merged.message) {
+    pendingDmStore = merged; // save username/platform while we wait for message
     return {
       status: 'clarify',
-      reply: 'Kisko DM karna hai? Naam ya @username batao! 😊'
+      reply: `Kya message bhejna hai **@${merged.username}** ko? 😊`,
+      data: { username: merged.username, platform: merged.platform }
     };
   }
 
-  // 2. Check for missing message
-  if (!active.message) {
-    return {
-      status: 'clarify',
-      reply: `Kya message bhejna hai @${active.username} ko? 😊`,
-      data: { username: active.username, platform: active.platform }
-    };
-  }
-
-  // 3. Attachment Detection
-  const attachmentKeywords = ['photo', 'image', 'pic', 'video', 'file', 'pdf', 'doc'];
-  const mentionsAttachment = attachmentKeywords.some(kw => active.message.toLowerCase().includes(kw));
-
-  if (mentionsAttachment && !active.hasFile) {
-    return {
-      status: 'clarify',
-      reply: 'Aapne photo/file mention kiya hai. Attachment bhi bhejna hai? Agar haan, toh attachment upload karke reply karo, ya phir bolo "No attachment".',
-      data: { username: active.username, platform: active.platform, message: active.message }
-    };
-  }
-
-  // 4. If all good, propose confirmation
+  // All slots filled — store and present confirm card (ONE step)
+  pendingDmStore = merged;
   return {
     status: 'confirm',
-    reply: `⚠️ Confirm DM Details:
-
-Recipient: @${active.username}
-Platform: ${active.platform}
-Message: "${active.message}"
-Attachment: ${active.hasFile ? '✅ Attached' : '❌ None'}
-
-Reply YES to confirm or NO to cancel.`
+    reply: buildConfirmCard(merged),
+    data: merged,
   };
 }
 
 /**
- * executePendingDM — Actually sends the message stored in memory.
+ * executePendingDM — Sends the stored DM. Called after user confirms.
  */
 export async function executePendingDM(): Promise<DmRouterResult> {
   if (!pendingDmStore) {
-    return { status: 'error', reply: 'No pending DM found to execute.', error: 'NO_PENDING_DM' };
+    return { status: 'error', reply: 'Koi pending DM nahi mili. Dobara bolein kisko bhejun?', error: 'NO_PENDING_DM' };
   }
 
   const { username, platform, message, hasFile } = pendingDmStore;
-  
+
   try {
-    const endpoint = platform === 'discord' 
+    const endpoint = platform === 'discord'
       ? 'http://localhost:3000/api/discord/post'
       : platform === 'instagram'
         ? 'http://localhost:3000/api/instagram/dm-send'
         : 'http://localhost:3000/api/twitter/dm-send';
 
     let body: any;
-    let headers: any = {};
+    const headers: any = {};
 
     if (platform === 'discord') {
-      body = JSON.stringify({
-        channelIds: [username],
-        content: message,
-        files: [] // File handling simplified for now
-      });
-      headers = { 'Content-Type': 'application/json' };
+      body = JSON.stringify({ channelIds: [username], content: message, files: [] });
+      headers['Content-Type'] = 'application/json';
     } else {
       const fd = new FormData();
       fd.append('username', username);
@@ -124,35 +115,34 @@ export async function executePendingDM(): Promise<DmRouterResult> {
     const res = await fetch(endpoint, { method: 'POST', body, headers });
     const data = await res.json();
 
+    pendingDmStore = null; // always clear after attempt
+
     if (data.success) {
-      pendingDmStore = null; // Clear after success
-      return { 
-        status: 'success', 
-        reply: `✅ DM sent to @${username} via ${platform}! 🎉\n\nAur kuch karna hai?` 
+      return {
+        status: 'success',
+        reply: `✅ DM sent to **@${username}** via ${platform.charAt(0).toUpperCase() + platform.slice(1)}! 🎉\n\nAur kuch karna hai?`
       };
     } else {
-      return { 
-        status: 'error', 
-        reply: `❌ DM failed: **${data.error}**`,
-        error: data.error 
+      return {
+        status: 'error',
+        reply: `❌ DM failed: **${data.error || 'Unknown error'}**\n\nCheck your account connection in Settings.`,
+        error: data.error
       };
     }
   } catch (err) {
+    pendingDmStore = null;
     const error = err instanceof Error ? err.message : 'Unknown error';
     return { status: 'error', reply: `❌ System error: ${error}`, error };
   }
 }
 
-/**
- * clearPendingDM — Cancels the current draft.
- */
 export function clearPendingDM() {
   pendingDmStore = null;
 }
 
-/**
- * hasPendingDM — Check if we are in a confirmation state.
- */
 export function getPendingDM() {
   return pendingDmStore;
 }
+
+// Legacy alias so existing imports don't break
+export const validateDM = handleDM;
