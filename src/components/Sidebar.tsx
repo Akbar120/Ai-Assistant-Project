@@ -10,12 +10,38 @@ interface NavItem {
   badge?: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: '⚡' },
-  { href: '/chat', label: 'Jenny AI', icon: '🌸' },
-  { href: '/agents', label: 'Agents', icon: '🤖' },
-  { href: '/accounts', label: 'Accounts', icon: '🔗' },
-  { href: '/scheduled', label: 'Scheduled', icon: '🕐' },
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Chat',
+    items: [
+      { href: '/chat', label: 'Chat', icon: '💬' },
+    ]
+  },
+  {
+    label: 'Control',
+    items: [
+      { href: '/dashboard', label: 'Overview', icon: '📊' },
+      { href: '/scheduled', label: 'Cron Jobs', icon: '🕛' },
+    ]
+  },
+  {
+    label: 'Agent',
+    items: [
+      { href: '/agents', label: 'Agents', icon: '🤖' },
+      { href: '/skills', label: 'Skills', icon: '⚡' },
+    ]
+  },
+  {
+    label: 'Settings',
+    items: [
+      { href: '/accounts', label: 'Config', icon: '⚙️' },
+    ]
+  }
 ];
 
 interface Status {
@@ -49,24 +75,32 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-text">⚡ SocialPoster</div>
-        <div className="sidebar-logo-sub">Multi-Platform AI Dashboard</div>
+        <div className="sidebar-logo-text" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16 }}>
+          <span style={{ color: 'var(--accent)', fontSize: 20 }}>◈</span> OPENCLAW
+        </div>
+        <div className="sidebar-logo-sub" style={{ letterSpacing: 0.5 }}>GATEWAY DASHBOARD</div>
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section-label">Navigation</div>
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`nav-item ${pathname === item.href || pathname.startsWith(item.href + '/') ? 'active' : ''}`}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            <span>{item.label}</span>
-            {item.href === '/accounts' && connectedCount > 0 && (
-              <span className="nav-badge">{connectedCount}/3</span>
-            )}
-          </Link>
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} style={{ marginBottom: 16 }}>
+            <div className="nav-section-label">{group.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`nav-item ${pathname === item.href || pathname.startsWith(item.href + '/') ? 'active' : ''}`}
+                >
+                  <span className="nav-icon" style={{ filter: pathname === item.href ? 'none' : 'grayscale(100%) opacity(0.7)' }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                  {item.href === '/accounts' && connectedCount > 0 && (
+                    <span className="nav-badge">{connectedCount} OK</span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
 
         <div style={{ margin: '16px 0' }} className="divider" />

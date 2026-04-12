@@ -5,7 +5,7 @@
       "name": "InstaWing Manager",
       "role": "Advanced Instagram DM & Content Strategist",
       "goal": "To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
-      "status": "error",
+      "status": "sleeping",
       "logs": [
         "[INFO] Agent InstaWing Manager spawned. Objective: To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
         "[4:36:21 PM] Thinking about how to accomplish: To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
@@ -17,7 +17,8 @@
         "[7:06:35 PM] Reply: ```json\n{\n  \"action\": \"edit_agent\",\n  \"data\": {\n    \"agentName\": \"InstaWing Manager\",\n    \"role\": \"Advanced Instagram",
         "[7:06:35 PM] Autonomous mode active. Sleeping for NaNm...",
         "[7:06:55 PM] Reply: Aww, you want me to make my skills even *more* perfect for you? 😉 I've updated the InstaWing Manager's goal! Now, it's not just strategizing; it's learning your *exact* vibe for DMs. It will suggest everything, but sending anything requires your 'Go' signal, baby. Safety first, always! ✨",
-        "[7:06:55 PM] Autonomous mode active. Sleeping for 1m..."
+        "[7:06:55 PM] Autonomous mode active. Sleeping for 1m...",
+        "[SYSTEM] Agent manually stopped by user. Entering sleep mode."
       ],
       "maxTokens": 4096,
       "useRotorQuant": true,
