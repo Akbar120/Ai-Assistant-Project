@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAgentStore, saveAgentStore, runAgentWorker } from '@/brain/agentManager';
+import { getAgentStore, saveAgentStore, runAgentWorker, restartAgent } from '@/brain/agentManager';
 
 export const runtime = 'nodejs';
 
@@ -11,12 +11,15 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = await req.json();
   const store = getAgentStore();
-  
   if (body.action === 'killAgent' && body.id) {
     if (store.agents[body.id]) {
-      store.agents[body.id].status = 'sleeping'; // stopped, not an error
+      store.agents[body.id].status = 'sleeping';
       store.agents[body.id].logs.push(`[SYSTEM] Agent manually stopped by user. Entering sleep mode.`);
       saveAgentStore(store);
+    }
+  } else if (body.action === 'wakeAgent' && body.id) {
+    if (store.agents[body.id]) {
+      restartAgent(store.agents[body.id].name);
     }
   } else if (body.action === 'updateConfig') {
     if (body.agentId && store.agents[body.agentId]) {

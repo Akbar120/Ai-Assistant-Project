@@ -4,6 +4,8 @@ import { ollamaChat } from '@/lib/ollama';
 import { orchestrate } from './orchestrator';
 import { runTool } from './tools';
 import { addAgentNotification } from './state';
+import { initializeWorkspace, buildHybridPrompt } from './workspace';
+import { extractAndSyncMemory, addSessionMemory, getSessionMemory } from './memoryService';
 
 export interface Agent {
   id: string;
@@ -11,6 +13,7 @@ export interface Agent {
   role: string;
   goal: string;
   status: 'sleeping' | 'running' | 'completed' | 'error';
+  mode: 'idle' | 'thinking' | 'executing' | 'waiting_confirmation' | 'configuring'; // New State Tracking
   logs: string[];
   maxTokens: number;
   useRotorQuant: boolean;
@@ -18,6 +21,7 @@ export interface Agent {
   tools: string[];
   isAutonomous: boolean;
   pollingInterval: number; // in milliseconds
+  sessionMemory?: string[]; // In-RAM context
 }
 
 export interface AgentStore {
@@ -53,19 +57,34 @@ export function spawnAgent(name: string, role: string, goal: string): Agent {
     role,
     goal,
     status: 'running',
-    logs: [`[INFO] Agent ${name} spawned. Objective: ${goal}`],
-    maxTokens: 4096, // Virtual KV Cache suppressor limit
+    mode: 'configuring', // Start in configuring mode
+    logs: [`[INFO] Agent ${name} spawned. Initializing provisioning pipeline...`],
+    maxTokens: 4096, 
     useRotorQuant: false,
     skills: [],
     tools: [],
     isAutonomous: false,
-    pollingInterval: 300000 // 5 minutes default
+    pollingInterval: 300000,
+    sessionMemory: []
   };
+
+  // Initialize Workspace Files & Provisoning Blueprint
+  initializeWorkspace(agent.id, { name, role, goal });
+  
+  // Create internal mission files as per Provisioning Engine Spec
+  const agentDir = path.join(process.cwd(), 'workspace', 'agents', agent.id);
+  try {
+    fs.writeFileSync(path.join(agentDir, 'memory.json'), JSON.stringify([], null, 2));
+    fs.writeFileSync(path.join(agentDir, 'config.json'), JSON.stringify(agent, null, 2));
+    fs.writeFileSync(path.join(agentDir, 'logs.json'), JSON.stringify(agent.logs, null, 2));
+  } catch (e) {
+    console.error(`[Provisioning] Failed to create core files for ${agent.id}:`, e);
+  }
 
   store.agents[agent.id] = agent;
   saveAgentStore(store);
 
-  // Kickoff background async worker
+  // Kickoff setup worker
   runAgentWorker(agent.id);
 
   return agent;
@@ -73,7 +92,10 @@ export function spawnAgent(name: string, role: string, goal: string): Agent {
 
 export function updateAgent(name: string, newRole?: string, newGoal?: string): Agent | null {
   const store = getAgentStore();
-  const agentId = Object.keys(store.agents).find(id => store.agents[id].name.toLowerCase() === name.toLowerCase());
+  const agentId = Object.keys(store.agents).find(id => {
+    const agent = store.agents[id];
+    return agent.name.trim().toLowerCase() === name.trim().toLowerCase();
+  });
 
   if (!agentId) return null;
 
@@ -95,7 +117,10 @@ export function updateAgent(name: string, newRole?: string, newGoal?: string): A
 
 export function restartAgent(name: string): Agent | null {
   const store = getAgentStore();
-  const agentId = Object.keys(store.agents).find(id => store.agents[id].name.toLowerCase() === name.toLowerCase());
+  const agentId = Object.keys(store.agents).find(id => {
+    const agent = store.agents[id];
+    return agent.name.trim().toLowerCase() === name.trim().toLowerCase();
+  });
 
   if (!agentId) return null;
 
@@ -135,6 +160,9 @@ export async function runAgentWorker(id: string) {
 
   const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+  // Lazy Initialization: Ensure workspace exists
+  initializeWorkspace(id, { name: agent.name, role: agent.role, goal: agent.goal });
+
   logAgentAction(id, `Thinking about how to accomplish: ${agent.goal}`);
 
   // Loop if autonomous, otherwise run once
@@ -145,13 +173,29 @@ export async function runAgentWorker(id: string) {
       agent = currentStore.agents[id];
       if (!agent || agent.status === 'sleeping') break;
 
+      // Hybrid Prompt Construction
+      const workspacePrompt = buildHybridPrompt(id);
+      const sessionContext = getSessionMemory(id).join('\n');
+      
       const result = await orchestrate(
         `Continue your task: ${agent.goal}`,
         [], // no history for workers yet
-        { message: `Continue your task: ${agent.goal}`, context: { mentions: [], hasFile: false, rawInput: agent.goal } }
+        { 
+          message: `Continue your task: ${agent.goal}`, 
+          context: { mentions: [], hasFile: false, rawInput: agent.goal },
+          workspacePrompt, // INJECT WORKSPACE CONTEXT
+          sessionContext    // INJECT SESSION CONTEXT
+        }
       );
 
       const { action, data, reply } = result;
+
+      // Update State to Executing if tool call
+      if (action === 'tool_call') {
+        const currentStore = getAgentStore();
+        if (currentStore.agents[id]) currentStore.agents[id].mode = 'executing';
+        saveAgentStore(currentStore);
+      }
 
       if (action === 'tool_call') {
         const { tool, args } = data as { tool: string, args: any };
@@ -167,6 +211,15 @@ export async function runAgentWorker(id: string) {
       } else {
         logAgentAction(id, `Reply: ${reply}`);
       }
+
+      // Memory Extraction Pass after turn
+      await extractAndSyncMemory(id, agent.goal, reply || '');
+      addSessionMemory(id, `Action: ${action}, Result: ${reply || 'Done'}`);
+
+      // Finish turn: back to thinking/idle
+      const endStore = getAgentStore();
+      if (endStore.agents[id]) endStore.agents[id].mode = 'thinking';
+      saveAgentStore(endStore);
 
       if (!agent.isAutonomous) {
         updateAgentStatus(id, 'completed');

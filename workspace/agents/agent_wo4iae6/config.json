@@ -1,0 +1,18 @@
+{
+  "id": "agent_wo4iae6",
+  "name": "Helper_Agent",
+  "role": "General Assistant",
+  "goal": "go ahead",
+  "status": "running",
+  "mode": "configuring",
+  "logs": [
+    "[INFO] Agent Helper_Agent spawned. Initializing provisioning pipeline..."
+  ],
+  "maxTokens": 4096,
+  "useRotorQuant": false,
+  "skills": [],
+  "tools": [],
+  "isAutonomous": false,
+  "pollingInterval": 300000,
+  "sessionMemory": []
+}

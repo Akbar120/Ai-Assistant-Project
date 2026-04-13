@@ -186,11 +186,14 @@ export async function POST(req: NextRequest) {
 
       case 'restart_agent': {
         const agentName = (data.agentName as string) || '';
+        console.log(`[Chat API] AI requested restart for agent: "${agentName}"`);
         if (agentName) {
           const restarted = restartAgent(agentName);
           if (restarted) {
+            console.log(`[Chat API] Agent "${agentName}" successfully restarted.`);
             finalReply = reply || `🔄 **${agentName}** ko maine restart kar diya hai! Wo phir se active ho gaya hai. ✨`;
           } else {
+            console.error(`[Chat API] Failed to find agent "${agentName}" for restart.`);
             finalReply = `❌ Sorry, main **${agentName}** ko dhoond nahi paayi. Kya naam sahi hai?`;
           }
         } else {

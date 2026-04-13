@@ -26,6 +26,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Control',
     items: [
       { href: '/dashboard', label: 'Overview', icon: '📊' },
+      { href: '/tasks', label: 'Tasks', icon: '📊' },
       { href: '/scheduled', label: 'Cron Jobs', icon: '🕛' },
     ]
   },

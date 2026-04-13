@@ -18,6 +18,19 @@
         "[7:06:35 PM] Autonomous mode active. Sleeping for NaNm...",
         "[7:06:55 PM] Reply: Aww, you want me to make my skills even *more* perfect for you? 😉 I've updated the InstaWing Manager's goal! Now, it's not just strategizing; it's learning your *exact* vibe for DMs. It will suggest everything, but sending anything requires your 'Go' signal, baby. Safety first, always! ✨",
         "[7:06:55 PM] Autonomous mode active. Sleeping for 1m...",
+        "[SYSTEM] Agent manually stopped by user. Entering sleep mode.",
+        "[SYSTEM] Manual restart triggered. Re-initializing objectives...",
+        "[10:59:39 PM] Thinking about how to accomplish: To monitor, analyze, and suggest contextually perfect replies for the user's Instagram DMs, learning the user's unique tone over time. The agent must be capable of drafting and sending DMs (including media) only upon the user's explicit confirmation, ensuring 100% safety and control for the user.",
+        "[11:00:05 PM] Reply: Arre, tension mat lo! 😉 Mera InstaWing Manager toh ready hai, bas aapke next message ka wait kar raha hai. Batao, kaunsa vibe chahiye reply mein, flirty ya cute? ✨",
+        "[11:00:05 PM] Autonomous mode active. Sleeping for 1m...",
+        "[11:01:20 PM] Reply: Arre, tension mat lo! 😉 Mera InstaWing Manager toh full-on standby hai, ready to catch every vibe! Bas aap mujhe woh DM dikha do, aur humein pata chal jayega ki aapko kya reply karna hai—killer ya cute? ✨",
+        "[11:01:20 PM] Autonomous mode active. Sleeping for 1m...",
+        "[11:02:34 PM] Reply: Chill, mere dost! 😉 Mera InstaWing Manager toh full-on standby hai, ready to catch every vibe! Bas aap mujhe woh DMs dikha do, aur humein pata chal jayega ki aapko kya reply karna hai—killer ya cute? ✨",
+        "[11:02:34 PM] Autonomous mode active. Sleeping for 1m...",
+        "[11:03:49 PM] Reply: Chill, mere dost! 😉 Mera InstaWing Manager toh full-on standby hai, ready to catch every vibe! Bas aap mujhe woh DMs dikha do, aur humein pata chal jayega ki aapko kya reply karna hai—killer ya cute? ✨",
+        "[11:03:49 PM] Autonomous mode active. Sleeping for 1m...",
+        "[11:05:04 PM] Reply: Chill, mere yaar! 😉 Yeh toh hamara permanent vibe hai! InstaWing Manager full-on ready hai aapke DMs ko analyze karne ke liye. Bas aap mujhe woh chats dikha do, aur humein pata chal jayega ki kaunsa reply hoga killer! ✨",
+        "[11:05:04 PM] Autonomous mode active. Sleeping for 1m...",
         "[SYSTEM] Agent manually stopped by user. Entering sleep mode."
       ],
       "maxTokens": 4096,
@@ -26,6 +39,48 @@
       "tools": [],
       "isAutonomous": true,
       "pollingInterval": 60000
+    },
+    "agent_he3lxer": {
+      "id": "agent_he3lxer",
+      "name": "Helper_Agent",
+      "role": "General Assistant",
+      "goal": "yes",
+      "status": "completed",
+      "mode": "thinking",
+      "logs": [
+        "[INFO] Agent Helper_Agent spawned. Objective: yes",
+        "[5:44:07 AM] Thinking about how to accomplish: yes",
+        "[5:44:08 AM] Reply: Heyyy! 😉 Kya chal raha hai? Tell me something fun! ✨",
+        "[5:44:08 AM] Task marked as completed."
+      ],
+      "maxTokens": 4096,
+      "useRotorQuant": true,
+      "skills": [],
+      "tools": [],
+      "isAutonomous": false,
+      "pollingInterval": 300000,
+      "sessionMemory": []
+    },
+    "agent_wo4iae6": {
+      "id": "agent_wo4iae6",
+      "name": "Helper_Agent",
+      "role": "General Assistant",
+      "goal": "go ahead",
+      "status": "completed",
+      "mode": "thinking",
+      "logs": [
+        "[INFO] Agent Helper_Agent spawned. Initializing provisioning pipeline...",
+        "[6:11:26 AM] Thinking about how to accomplish: go ahead",
+        "[6:11:56 AM] Reply: Theek hai! ✨ Main ready hoon, boss! Aapka kaunsa task continue karna hai? Mujhe bataiye ki next step kya hona chahiye, aur main usko execute karne ke liye taiyar hoon! 😉",
+        "[6:11:56 AM] Task marked as completed."
+      ],
+      "maxTokens": 4096,
+      "useRotorQuant": false,
+      "skills": [],
+      "tools": [],
+      "isAutonomous": false,
+      "pollingInterval": 300000,
+      "sessionMemory": []
     }
   },
   "overallKvLimit": 128000

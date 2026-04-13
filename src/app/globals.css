@@ -3,45 +3,45 @@
 /* ─── Design Tokens ──────────────────────────────────────────────────────── */
 :root {
   /* Colors */
-  --bg-base: #f9fafb;
-  --bg-surface: #f3f4f6;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f9fafb;
-  --bg-input: #ffffff;
-  --bg-sidebar: #ffffff;
+  --bg-base: #07070f;
+  --bg-surface: #0e0e1a;
+  --bg-card: #13131f;
+  --bg-card-hover: #18182a;
+  --bg-input: #0a0a18;
+  --bg-sidebar: #0b0b16;
 
-  --border-subtle: #e5e7eb;
-  --border-glass: #d1d5db;
-  --border-focus: #ef4444;
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-glass: rgba(255,255,255,0.10);
+  --border-focus: #6c63ff;
 
-  --accent: #e11d48;
-  --accent-light: #f43f5e;
-  --accent-dim: rgba(225, 29, 72, 0.1);
-  --accent-glow: 0 0 30px rgba(225, 29, 72, 0.2);
+  --accent: #6c63ff;
+  --accent-light: #8b84ff;
+  --accent-dim: rgba(108,99,255,0.15);
+  --accent-glow: 0 0 30px rgba(108,99,255,0.35);
 
-  --success: #16a34a;
-  --success-dim: rgba(22, 163, 74, 0.15);
-  --error: #dc2626;
-  --error-dim: rgba(220, 38, 38, 0.15);
-  --warning: #d97706;
-  --warning-dim: rgba(217, 119, 6, 0.15);
+  --success: #22c55e;
+  --success-dim: rgba(34,197,94,0.15);
+  --error: #ef4444;
+  --error-dim: rgba(239,68,68,0.15);
+  --warning: #f59e0b;
+  --warning-dim: rgba(245,158,11,0.15);
 
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #9ca3af;
-  --text-accent: #e11d48;
+  --text-primary: #e8e8f0;
+  --text-secondary: #8888aa;
+  --text-muted: #55557a;
+  --text-accent: #6c63ff;
 
-  /* Platform Colors (Slightly adjusted for contrast on white) */
+  /* Platform Colors */
   --discord: #5865F2;
-  --discord-dim: rgba(88,101,242,0.1);
-  --twitter: #000000;
-  --twitter-dim: rgba(0,0,0,0.05);
+  --discord-dim: rgba(88,101,242,0.18);
+  --twitter: #ffffff;
+  --twitter-dim: rgba(255,255,255,0.08);
   --instagram: #E1306C;
-  --instagram-dim: rgba(225,48,108,0.1);
+  --instagram-dim: rgba(225,48,108,0.18);
   --instagram-gradient: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
 
   /* Spacing */
-  --sidebar-width: 260px;
+  --sidebar-width: 240px;
   --topbar-height: 60px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -50,10 +50,10 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
-  --shadow-glow: 0 0 40px rgba(225, 29, 72, 0.15);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+  --shadow-glow: 0 0 40px rgba(108,99,255,0.2);
 
   /* Transitions */
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -107,7 +107,7 @@ body {
   top: 0;
   width: 1px;
   height: 100%;
-  background: var(--border-subtle);
+  background: linear-gradient(180deg, transparent, rgba(108,99,255,0.4), transparent);
 }
 
 .sidebar-logo {
@@ -227,7 +227,7 @@ body {
 
 .topbar {
   height: var(--topbar-height);
-  background: rgba(255,255,255,0.8);
+  background: rgba(14,14,26,0.8);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -712,7 +712,7 @@ textarea.input {
 .chat-input-area {
   border-top: 1px solid var(--border-subtle);
   padding: 16px 20px;
-  background: rgba(255,255,255,0.8);
+  background: rgba(14,14,26,0.8);
   backdrop-filter: blur(20px);
 }
 
