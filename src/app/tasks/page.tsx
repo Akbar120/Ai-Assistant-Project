@@ -191,14 +191,19 @@ function TaskCard({ task }: { task: Task }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
+type TabType = 'Ongoing' | 'Completed';
+
+const ONGOING_STATUSES: TaskStatus[] = ['created', 'processing', 'waiting_input', 'partial'];
+const COMPLETED_STATUSES: TaskStatus[] = ['completed', 'failed', 'abandoned'];
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<TaskStatus | 'all'>('all');
+  const [activeTab, setActiveTab] = useState<TabType>('Ongoing');
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch(`/api/tasks${filter !== 'all' ? `?status=${filter}` : ''}`);
+      const res = await fetch('/api/tasks');
       const data = await res.json();
       setTasks(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -212,61 +217,79 @@ export default function TasksPage() {
     fetchTasks();
     const interval = setInterval(fetchTasks, 2000);
     return () => clearInterval(interval);
-  }, [filter]);
+  }, []);
+
+  const ongoingTasks = tasks.filter(t => ONGOING_STATUSES.includes(t.status));
+  const completedTasks = tasks.filter(t => COMPLETED_STATUSES.includes(t.status));
+  const displayTasks = activeTab === 'Ongoing' ? ongoingTasks : completedTasks;
 
   return (
     <div style={{ padding: '40px', background: 'var(--bg-main)', minHeight: '100%' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-        
-        <header style={{ marginBottom: 40 }}>
-           <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)' }}>Mission Control</h1>
-           <p style={{ opacity: 0.6, marginTop: 8 }}>Supervise active agents and system-wide task execution pipelines.</p>
+
+        <header style={{ marginBottom: 36 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)' }}>Mission Control</h1>
+          <p style={{ opacity: 0.6, marginTop: 8 }}>Real task execution only — no casual chat noise.</p>
         </header>
 
         {/* STATS BAR */}
-        <div style={{ 
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', 
-          gap: 20, marginBottom: 40 
-        }}>
-           <StatCard label="Active Tasks" value={tasks.filter(t => t.status === 'processing').length} icon="⚡" />
-           <StatCard label="Success Rate" value="98%" icon="🎯" />
-           <StatCard label="Awaiting Input" value={tasks.filter(t => t.status === 'waiting_input').length} icon="💬" />
-           <StatCard label="Failed" value={tasks.filter(t => t.status === 'failed').length} icon="🧨" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 36 }}>
+          <StatCard label="Active" value={ongoingTasks.filter(t => t.status === 'processing').length} icon="⚡" />
+          <StatCard label="Waiting Input" value={ongoingTasks.filter(t => t.status === 'waiting_input').length} icon="💬" />
+          <StatCard label="Completed" value={completedTasks.filter(t => t.status === 'completed').length} icon="✅" />
+          <StatCard label="Failed" value={completedTasks.filter(t => t.status === 'failed').length} icon="🧨" />
         </div>
 
-        {/* FILTERS */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 32 }}>
-          {(['all', 'processing', 'waiting_input', 'completed', 'failed', 'abandoned'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
+        {/* TABS */}
+        <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border-subtle)', marginBottom: 28 }}>
+          {(['Ongoing', 'Completed'] as TabType[]).map(tab => (
+            <div
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               style={{
-                padding: '10px 18px',
-                borderRadius: '12px',
-                fontSize: 13,
+                padding: '10px 24px',
+                fontSize: 14,
                 fontWeight: 700,
                 cursor: 'pointer',
-                background: filter === f ? 'var(--accent)' : 'rgba(255,255,255,0.03)',
-                color: filter === f ? 'white' : 'var(--text-secondary)',
-                border: filter === f ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                transition: 'all 0.2s ease',
+                color: activeTab === tab ? 'var(--accent)' : 'var(--text-muted)',
+                borderBottom: `2px solid ${activeTab === tab ? 'var(--accent)' : 'transparent'}`,
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
               }}
             >
-              {f.charAt(0).toUpperCase() + f.slice(1).replace('_', ' ')}
-            </button>
+              {tab === 'Ongoing' ? '⚙️' : '📦'} {tab}
+              <span style={{
+                fontSize: 11, padding: '1px 7px', borderRadius: 10,
+                background: activeTab === tab ? 'rgba(108,99,255,0.15)' : 'rgba(255,255,255,0.05)',
+                color: activeTab === tab ? 'var(--accent)' : 'var(--text-muted)',
+                fontWeight: 800
+              }}>
+                {tab === 'Ongoing' ? ongoingTasks.length : completedTasks.length}
+              </span>
+            </div>
           ))}
         </div>
 
         {/* TASK LIST */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {loading && tasks.length === 0 ? (
+          {loading && displayTasks.length === 0 ? (
             <div style={{ padding: '80px', textAlign: 'center', opacity: 0.5 }}>Loading missions...</div>
-          ) : tasks.length === 0 ? (
+          ) : displayTasks.length === 0 ? (
             <div style={{ padding: '80px', textAlign: 'center', opacity: 0.3, border: '2px dashed var(--border-subtle)', borderRadius: 24 }}>
-               No missions found in this category.
+              <div style={{ fontSize: 40, marginBottom: 12 }}>{activeTab === 'Ongoing' ? '🟢' : '📦'}</div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>
+                {activeTab === 'Ongoing' ? 'No active tasks right now' : 'No completed tasks yet'}
+              </div>
+              <div style={{ fontSize: 13, marginTop: 8, opacity: 0.7 }}>
+                {activeTab === 'Ongoing'
+                  ? 'Tasks only appear when Jenny is doing real work — not for casual chat.'
+                  : 'Completed agent creation, tool runs, and skill executions will appear here.'}
+              </div>
             </div>
           ) : (
-            tasks.map(task => <TaskCard key={task.id} task={task} />)
+            displayTasks.map(task => <TaskCard key={task.id} task={task} />)
           )}
         </div>
 
@@ -277,16 +300,17 @@ export default function TasksPage() {
 
 function StatCard({ label, value, icon }: { label: string, value: any, icon: string }) {
   return (
-    <div style={{ 
-      padding: 24, borderRadius: 20, background: 'rgba(255,255,255,0.02)', 
-      border: '1px solid rgba(255,255,255,0.05)', display: 'flex', 
-      alignItems: 'center', gap: 20 
+    <div style={{
+      padding: 24, borderRadius: 20, background: 'rgba(255,255,255,0.02)',
+      border: '1px solid rgba(255,255,255,0.05)', display: 'flex',
+      alignItems: 'center', gap: 20
     }}>
-       <div style={{ fontSize: 32 }}>{icon}</div>
-       <div>
-          <div style={{ fontSize: 24, fontWeight: 800 }}>{value}</div>
-          <div style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-       </div>
+      <div style={{ fontSize: 32 }}>{icon}</div>
+      <div>
+        <div style={{ fontSize: 24, fontWeight: 800 }}>{value}</div>
+        <div style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+      </div>
     </div>
   );
 }
+

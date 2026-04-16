@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const SCHEDULE_FILE = path.join(process.cwd(), 'sessions', 'scheduled-posts.json');
 

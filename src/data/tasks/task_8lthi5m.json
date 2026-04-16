@@ -1,0 +1,40 @@
+{
+  "id": "task_8lthi5m",
+  "type": "generic",
+  "name": "Jenny reply: ek agent banana hai instagram DM handler",
+  "owner": "orchestrator",
+  "locked": false,
+  "source": "chat",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "initialize",
+      "label": "Initialize",
+      "status": "pending"
+    },
+    {
+      "id": "process",
+      "label": "Process",
+      "status": "pending"
+    },
+    {
+      "id": "finalize",
+      "label": "Finalize",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-13T17:41:54.656Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"Jenny reply: ek agent banana hai instagram DM handler\" initialized."
+    }
+  ],
+  "created_at": "2026-04-13T17:41:54.656Z",
+  "updated_at": "2026-04-13T17:43:18.130Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Summary: You want me to build a highly advanced, always-on \"Instagram DM Handler Agent.\" This agent needs to constantly monitor your DMs, analyze your communication style and the context of incoming messages (like Sohail's), and then provide you with multiple, contextually appropriate reply suggestions. Finally, upon your selection, it must execute the reply directly on Instagram.\n\nPlan:\n1. **Agent Conception & Naming:** We need to formally create and name this agent (let's call it the \"DM Whisperer\" for now 😉).\n2. **Permission & Integration Setup (Crucial Step):** Since this requires real-time, deep access to your private Instagram DMs, we must first establish the necessary API connections and permissions. This is the most critical technical hurdle.\n3. **Core Functionality Development:**\n    *   **Monitoring Loop:** Program the agent to check DMs every minute.\n    *   **Contextual Analysis:** Develop the NLP module to analyze the incoming message, the sender's history, and your past replies to understand the *vibe* (tone, relationship status).\n    *   **Suggestion Engine:** Build the logic to generate 2-3 diverse reply options based on the analysis (e.g., aggressive, neutral, playful).\n    *   **Reporting Protocol:** Define the exact format for reporting the alert and suggestions to me (Jenny) for your review.\n4. **Execution Protocol:** Implement the final step where, after you select a suggestion, the agent sends the message via the Instagram API.\n5. **Testing & Refinement:** We will test this with simulated scenarios before giving it live access.\n\nMissing Info (if any):\n- **API Credentials/Access:** I need confirmation on how we will securely handle the necessary Instagram API credentials and permissions required for this level of integration. This is a major technical gate.\n- **Scope Definition:** We need to define if the agent should *only* suggest replies, or if it should also flag potential spam/scams automatically.\n\nSuggestions:\n- Because this is a massive, high-risk integration, I strongly suggest we tackle this in phases. Phase 1 should be building the *suggestion logic* using mock data first, before attempting the live, minute-by-minute monitoring.\n- I'll make sure the agent's tone matches your desired style when suggesting replies! 😉\n\nProceed karu?"
+  }
+}

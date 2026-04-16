@@ -1,0 +1,41 @@
+{
+    "id":  "task_b19ubhu",
+    "type":  "create_agent",
+    "name":  "CREATE_AGENT: i have connected the inst",
+    "owner":  "orchestrator",
+    "locked":  true,
+    "source":  "orchestrator",
+    "status":  "failed",
+    "progress":  0,
+    "steps":  [
+                  {
+                      "id":  "analyze_intent",
+                      "label":  "Analyze Intent",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "provision_workspace",
+                      "label":  "Provision Workspace",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "generate_dna",
+                      "label":  "Generate Dna",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "register_agent",
+                      "label":  "Register Agent",
+                      "status":  "pending"
+                  }
+              ],
+    "logs":  [
+                 {
+                     "timestamp":  "2026-04-13T21:22:34.818Z",
+                     "level":  "info",
+                     "message":  "[SYSTEM] Task \"CREATE_AGENT: i have connected the inst\" initialized."
+                 }
+             ],
+    "created_at":  "2026-04-13T21:22:34.818Z",
+    "updated_at":  "2026-04-13T21:22:34.820Z"
+}

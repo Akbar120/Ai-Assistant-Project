@@ -1,0 +1,45 @@
+{
+  "id": "task_je6jsf4",
+  "type": "create_agent",
+  "name": "CREATE_AGENT: Maine dekha ki aapko agen",
+  "owner": "orchestrator",
+  "locked": true,
+  "source": "orchestrator",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "analyze_intent",
+      "label": "Analyze Intent",
+      "status": "pending"
+    },
+    {
+      "id": "provision_workspace",
+      "label": "Provision Workspace",
+      "status": "pending"
+    },
+    {
+      "id": "generate_dna",
+      "label": "Generate Dna",
+      "status": "pending"
+    },
+    {
+      "id": "register_agent",
+      "label": "Register Agent",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-14T23:51:05.550Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"CREATE_AGENT: Maine dekha ki aapko agen\" initialized."
+    }
+  ],
+  "created_at": "2026-04-14T23:51:05.550Z",
+  "updated_at": "2026-04-14T23:52:21.773Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Maine dekha ki aapko wohi advanced DM monitoring agent chahiye, lekin usko ek naya naam dena hai. Aapne clear instructions di hain ki plan structured hona chahiye aur koi vague questions nahi hone chahiye.\n\nIske liye, main **Agent Creator (Full Provisioning Engine)** skill ka use karungi.\n\n**Plan:**\n1.  **Skill Selection:** `agent_creator` (Full Provisioning Engine)\n2.  **Tool Selection:** `instagram_dm_reader` aur `instagram_dm_sender` (Yeh tools agent ko DMs read aur send karne denge).\n3.  **Skill Selection:** `system_awareness` aur `agent_followup` (Yeh skills agent ko system state check karne aur mere saath coordinate karne mein help karenge).\n4.  **Agent Naming:** Main ek naya, distinct naam rakhungi, jaise ki `DM_Monitor_Pro`.\n5.  **Execution:** Main ek structured JSON action blob bana kar agent ko provision karungi.\n\n**Proposed Agent Configuration (New Name):**\n*   **Agent Name:** `DM_Monitor_Pro`\n*   **Goal:** Continuously monitor Instagram DMs every minute, analyze sender's tone, and suggest 3 contextually appropriate replies.\n*   **Role:** Proactive Instagram DM Handler and Tone Analyst\n*   **Tools:** `instagram_dm_reader`, `instagram_dm_sender`\n*   **Skills:** `system_awareness`, `agent_followup`\n*   **Channels:** `instagram`\n\nYeh hai structured plan. Kya main is configuration ke saath, naye naam `DM_Monitor_Pro` se agent ko provision karun? Confirm karu?"
+  }
+}

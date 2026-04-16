@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import ToastProvider from '@/components/ToastProvider';
+import { ChatProvider } from '@/components/chat/ChatProvider';
 
 export const metadata: Metadata = {
   title: 'Social Multi Poster — AI-Powered Social Media Dashboard',
@@ -16,9 +17,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body suppressHydrationWarning>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <ChatProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </ChatProvider>
       </body>
     </html>
   );

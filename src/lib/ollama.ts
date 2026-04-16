@@ -1,9 +1,42 @@
 // Ollama client — optimized for low-latency voice responses
 // Defaults to http://localhost:11434
 
+import fs from 'fs';
+import path from 'path';
+
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 export const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:e4b';
 export const TEXT_MODEL = process.env.OLLAMA_TEXT_MODEL || 'gemma4:e4b';
+
+// ── Persistent Model Selection (file-based, survives serverless restarts) ──────
+const MODEL_FILE = path.join(process.cwd(), 'src', 'data', 'active_model.json');
+
+/**
+ * Always reads from disk — no in-memory state.
+ * Safe across Next.js serverless restarts, hot reloads, and concurrent requests.
+ */
+export function getActiveModel(): string {
+  try {
+    const data = fs.readFileSync(MODEL_FILE, 'utf-8');
+    const parsed = JSON.parse(data);
+    return (parsed?.model && typeof parsed.model === 'string') ? parsed.model : DEFAULT_MODEL;
+  } catch {
+    return DEFAULT_MODEL;
+  }
+}
+
+/**
+ * Persists model selection to disk.
+ */
+export function setActiveModel(model: string): void {
+  try {
+    const dir = path.dirname(MODEL_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(MODEL_FILE, JSON.stringify({ model }, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[Ollama] Failed to persist active model:', err);
+  }
+}
 
 export interface OllamaMessage {
   role: 'system' | 'user' | 'assistant';
@@ -98,12 +131,6 @@ export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenera
   }
 }
 
-/**
- * Stream chat and collect full text, calling onChunk for each token.
- * Fires onSentence when a complete sentence boundary is detected.
- * This enables TTS to start speaking the first sentence while the
- * model is still generating the rest.
- */
 export async function ollamaChatWithSentenceCallback(
   options: OllamaChatOptions,
   onSentence: (sentence: string, isFirst: boolean) => void
@@ -112,10 +139,18 @@ export async function ollamaChatWithSentenceCallback(
   let buffer = '';
   let fullText = '';
   let sentenceCount = 0;
+  let isJsonMode = false;
 
   for await (const chunk of ollamaChatStream(options)) {
     buffer += chunk;
     fullText += chunk;
+    
+    // Detect if LLM is outputting JSON tool call instead of conversation
+    if (!isJsonMode && (fullText.trimStart().startsWith('{') || fullText.trimStart().startsWith('```json') || fullText.trimStart().startsWith('`json'))) {
+      isJsonMode = true;
+    }
+
+    if (isJsonMode) continue;
 
     // Look for sentence boundaries
     let lastBoundary = -1;
@@ -139,25 +174,28 @@ export async function ollamaChatWithSentenceCallback(
     }
   }
 
-  // Flush remaining buffer
-  if (buffer.trim().length > 3) {
+  // Flush remaining buffer if not json
+  if (!isJsonMode && buffer.trim().length > 3) {
     onSentence(buffer.trim(), sentenceCount === 0);
   }
 
   return fullText;
 }
 
-export async function checkOllamaStatus(): Promise<{ running: boolean; models: string[] }> {
+export async function checkOllamaStatus(): Promise<{ running: boolean; models: string[]; error?: string }> {
   try {
     const resp = await fetch(`${OLLAMA_URL}/api/tags`, {
       signal: AbortSignal.timeout(3000),
+      cache: 'no-store' // Ensure we don't get cached "Off" state
     });
-    if (!resp.ok) return { running: false, models: [] };
+    if (!resp.ok) {
+       return { running: false, models: [], error: `HTTP ${resp.status}` };
+    }
     const data = await resp.json();
     const models = (data.models || []).map((m: { name: string }) => m.name);
     return { running: true, models };
-  } catch {
-    return { running: false, models: [] };
+  } catch (err: any) {
+    return { running: false, models: [], error: err.message };
   }
 }
 

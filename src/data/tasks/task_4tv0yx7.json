@@ -1,0 +1,41 @@
+{
+    "id":  "task_4tv0yx7",
+    "type":  "create_agent",
+    "name":  "CREATE_AGENT: Is the agent deployed ?",
+    "owner":  "orchestrator",
+    "locked":  true,
+    "source":  "orchestrator",
+    "status":  "failed",
+    "progress":  0,
+    "steps":  [
+                  {
+                      "id":  "analyze_intent",
+                      "label":  "Analyze Intent",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "provision_workspace",
+                      "label":  "Provision Workspace",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "generate_dna",
+                      "label":  "Generate Dna",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "register_agent",
+                      "label":  "Register Agent",
+                      "status":  "pending"
+                  }
+              ],
+    "logs":  [
+                 {
+                     "timestamp":  "2026-04-14T21:30:09.984Z",
+                     "level":  "info",
+                     "message":  "[SYSTEM] Task \"CREATE_AGENT: Is the agent deployed ?\" initialized."
+                 }
+             ],
+    "created_at":  "2026-04-14T21:30:09.984Z",
+    "updated_at":  "2026-04-14T21:30:09.986Z"
+}

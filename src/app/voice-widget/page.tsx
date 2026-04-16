@@ -55,6 +55,18 @@ export default function VoiceWidgetPage() {
   const pushToMainChat = (userText: string, aiText: string) =>
     getIpc()?.send('voice-to-chat', { userText, aiText });
 
+  const manualInterrupt = () => {
+    // Stop the Python TTS queue immediately
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'stop' }));
+    }
+    // Stop Front-end TTS via Electron IPC
+    getIpc()?.send('stop-tts');
+    setStatus('ACTIVE');
+    setTtsStatus('idle');
+    console.log('[VoiceWidget] Manual interrupt triggered');
+  };
+
   const manualSleep = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'sleep' }));
@@ -64,52 +76,33 @@ export default function VoiceWidgetPage() {
     setLastTranscript('');
   };
 
-  // ── Main API call — voice mode with sentence array ──────────────────────
+  // ── Main UI Bridge — sends transcript to main window ────────────────────
   const handleTranscript = useCallback(async (text: string) => {
     setLastTranscript(text);
-    setLastReply('');
+    
+    // 1. Enter thinking state locally for UX feedback
+    setLastReply('...');
     setStatus('THINKING');
+    
+    // 2. Push to main chat for processing (Main chat now owns AI and TTS)
+    pushToMainChat(text, ''); // Passing empty aiText since main chat handles it
+  }, []);
 
-    try {
-      const fd = new FormData();
-      fd.append('message', text);
-      fd.append('history', '[]');
-      fd.append('voice', '1'); // Ask API for sentences array
+  // ── Sync with Main Chat — receives results back via IPC ──────────────────
+  useEffect(() => {
+    const ipc = getIpc();
+    if (!ipc) return;
 
-      const res = await fetch(`${getApiBase()}/api/chat`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const replyHandler = (_: any, { aiText, status: newStatus }: { aiText: string; status?: AppStatus }) => {
+      console.log("[IPC] Received reply from main chat:", aiText);
+      setLastReply(aiText);
+      if (newStatus) setStatus(newStatus);
+      else setStatus('PASSIVE');
+    };
 
-      const data = await res.json();
-      const fullReply: string = data.reply || '';
-      const sentences: string[] = data.sentences || [];
-
-      // Show text in widget
-      const visual = fullReply
-        .replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '[Task Generated]')
-        .trim();
-      setLastReply(visual);
-
-      // ── START TTS IMMEDIATELY with sentences ───────────────────────────
-      // API pre-splits reply into sentences — we queue them all right away.
-      // First sentence fires immediately, rest drain as TTS finishes each one.
-      if (sentences.length > 0) {
-        queueSentences(sentences);
-      } else if (fullReply) {
-        // Fallback: send full reply
-        sendTTS(fullReply);
-      }
-
-      pushToMainChat(text, fullReply);
-
-    } catch (e: any) {
-      console.error('[VoiceWidget] Error:', e);
-      const errMsg = 'Sorry, connection failed.';
-      setLastReply(errMsg);
-      sendTTS(errMsg);
-    } finally {
-      setStatus('PASSIVE');
-    }
-  }, [queueSentences, sendTTS]);
+    ipc.on('chat-reply', replyHandler);
+    return () => ipc.removeListener('chat-reply', replyHandler);
+  }, []);
 
 
   // ── WebSocket connection ─────────────────────────────────────────────────
@@ -132,10 +125,16 @@ export default function VoiceWidgetPage() {
           if (data.type === 'status') {
             const newState = data.state as AppStatus;
             setStatus(newState);
-            if (newState === 'ACTIVE') showSelf();
+            if (newState === 'ACTIVE') {
+              showSelf();
+              // 🔥 BARGE-IN: User is now talking, stop Jenny's audio
+              getIpc()?.send('stop-tts');
+            }
 
           } else if (data.type === 'transcript') {
             handleTranscript(data.text);
+            // Also stop speech when a transcript is finalizing
+            getIpc()?.send('stop-tts');
 
           } else if (data.type === 'tts_status') {
             // Python signals playing/idle — just mirror it in UI state
@@ -167,8 +166,14 @@ export default function VoiceWidgetPage() {
 
   // ── Auto-hide after conversation ───────────────────────────────────────
   useEffect(() => {
+    // Immediately hide on disconnect or long-term passive
+    if (status === 'DISCONNECTED') {
+      hideWidget();
+      return;
+    }
+    // After a voice exchange finishes, hide after 5s of PASSIVE+idle
     if (status === 'PASSIVE' && ttsStatus === 'idle') {
-      const timer = setTimeout(() => hideWidget(), 12000);
+      const timer = setTimeout(() => hideWidget(), 5000);
       return () => clearTimeout(timer);
     }
   }, [status, ttsStatus]);
@@ -277,14 +282,39 @@ export default function VoiceWidgetPage() {
           )}
         </div>
 
-        {/* Status */}
-        <h3 style={{
-          fontSize: 14, fontWeight: 500, margin: '0 0 20px',
-          letterSpacing: 0.5, color: 'rgba(255,255,255,0.9)',
-          textTransform: 'uppercase',
-        }}>
-          {statusLabel()}
-        </h3>
+        {/* Status + Stop Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 20px' }}>
+          <h3 style={{
+            fontSize: 14, fontWeight: 500, margin: 0,
+            letterSpacing: 0.5, color: 'rgba(255,255,255,0.9)',
+            textTransform: 'uppercase',
+          }}>
+            {statusLabel()}
+          </h3>
+
+          {/* Stop / Interrupt Button — shows only while Jenny is speaking */}
+          {isSpeaking && (
+            <button
+              onClick={manualInterrupt}
+              style={{
+                background: 'rgba(239,68,68,0.85)',
+                border: '1px solid rgba(239,68,68,0.6)',
+                borderRadius: 20,
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 12px',
+                cursor: 'pointer',
+                letterSpacing: 0.5,
+                animation: 'pulse 1.2s ease-in-out infinite',
+                WebkitAppRegion: 'no-drag',
+              } as any}
+              title="Stop Jenny from speaking"
+            >
+              ⏹ STOP
+            </button>
+          )}
+        </div>
 
         {/* Conversation stream */}
         <div

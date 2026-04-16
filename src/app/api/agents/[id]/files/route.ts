@@ -2,20 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getWorkspaceFiles, initializeWorkspace } from '@/brain/workspace';
 import { getAgentStore } from '@/brain/agentManager';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
   try {
     // Lazy Initialization: Ensure workspace exists before listing
+    console.log('Fetching files for agent ID:', id);
     const store = getAgentStore();
     const agent = store.agents[id];
-    if (agent) {
-      initializeWorkspace(id, { name: agent.name, role: agent.role, goal: agent.goal });
+    if (!agent) {
+       console.log('Agent not found in store for ID:', id);
+       console.log('Available keys:', Object.keys(store.agents));
+       throw new Error('Agent not found');
     }
-
-    const files = getWorkspaceFiles(id);
+    const files = getWorkspaceFiles(agent.folder || id);
     // Add type/role metadata based on filename
     const metadata = files.map(f => ({
       name: f,
@@ -28,6 +33,7 @@ export async function GET(
     }));
     return NextResponse.json({ files: metadata });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to list workspace files' }, { status: 500 });
+    console.error('Files API Error:', error);
+    return NextResponse.json({ error: 'Failed to list workspace files', details: String(error) }, { status: 500 });
   }
 }

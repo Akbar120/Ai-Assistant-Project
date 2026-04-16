@@ -6,7 +6,7 @@
 
 export async function execute_instagram_fetch(): Promise<{ success: boolean; data?: any; reply: string; error?: string; hasUnread?: boolean }> {
   try {
-    const res = await fetch('http://localhost:3000/api/instagram/dms', { method: 'GET' });
+    const res = await fetch('http://localhost:3000/api/instagram/dms?deepRead=true', { method: 'GET' });
     const data = await res.json();
 
     if (!data.success) {
@@ -27,7 +27,13 @@ export async function execute_instagram_fetch(): Promise<{ success: boolean; dat
       };
     }
 
-    const details = unread.map((c: any) => `@${c.username}: "${c.lastMessage || 'No message preview'}"`).join('\n');
+    // Sanitize message previews: strip non-ASCII and trim to avoid context poisoning
+    const sanitize = (text: string) => (text || '').replace(/[^\x20-\x7E]/g, '').trim();
+
+    const details = unread.map((c: any) => {
+      const cleanMsg = sanitize(c.lastMessage);
+      return `@${c.username}: "${cleanMsg || 'No message preview'}"`;
+    }).join('\n');
 
     return {
       success: true,

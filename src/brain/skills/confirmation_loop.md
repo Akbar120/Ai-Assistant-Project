@@ -4,10 +4,11 @@
 This skill ensures that no task is executed with incomplete or ambiguous information. It creates a structured loop where the agent identifies missing data, requests clarification, and resumes execution only after sufficient input is provided.
 
 ## Tool Access
-- `ask_user`
-- `run_agent`
-- `create_skill`
+- `manage_agent` (was: `run_agent` — for orchestrating other agents)
+- `code_executor` (was: `create_skill` — for creating new capabilities)
 - Any task-specific tools (conditional)
+
+> Note: Asking the user for clarification is done via normal conversation — no `ask_user` tool is needed. Jenny asks directly in chat.
 
 ## Core Purpose
 - Prevent broken executions
@@ -83,7 +84,7 @@ If required capability doesn't exist:
   "message": "Is task ke liye ek naya skill banana padega. Bana du?"
 }
 
-If user says YES → trigger `create_skill`
+If user says YES → call `code_executor` with `operation: "create_skill"`
 
 ---
 
@@ -106,6 +107,8 @@ If another agent is better suited:
   "reason": "Task requires deep research"
 }
 
+Use `manage_agent` to delegate to that agent.
+
 ---
 
 ## 🚫 Rules
@@ -124,7 +127,7 @@ Always structured:
 {
   "status": "waiting_for_input",
   "missing_fields": [...],
-  "next_action": "ask_user"
+  "next_action": "ask_user_in_chat"
 }
 
 OR
@@ -186,14 +189,15 @@ The agent must check:
 
 1. Existing Skills:
    - Kya required functionality already kisi skill me exist karti hai?
-   - Example: "instagram_fetch", "platform_post", "caption_manager"
+   - Call `get_skills` to verify.
 
 2. Available Tools:
    - Kya direct tool execution possible hai bina naya skill banaye?
-   - Example: DM bhejna → existing tool ho sakta hai
+   - Example: DM bhejna → existing `instagram_dm_sender` tool ho sakta hai
 
 3. Other Agents:
    - Kya koi existing agent already ye kaam karta hai?
+   - Call `get_agents` to verify.
 
 ---
 
@@ -218,7 +222,7 @@ Example:
 
 ### Case 3: Nothing Exists (Skill Missing)
 
-ONLY THEN suggest new skill creation.
+ONLY THEN suggest new skill creation via `code_executor`.
 
 ---
 
@@ -253,15 +257,15 @@ When suggesting a new skill, agent MUST explain:
 
 Before asking user:
 
-1. Check Skills ✅  
+1. Check Skills via `get_skills` ✅  
 2. Check Tools ✅  
-3. Check Agents ✅  
+3. Check Agents via `get_agents` ✅  
 
 THEN:
 
 - If possible → execute  
 - If partial → ask missing info  
-- If not possible → suggest skill (with reason)
+- If not possible → suggest skill (with reason) using `code_executor`
 
 ---
 

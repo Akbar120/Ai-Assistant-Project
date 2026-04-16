@@ -1,0 +1,40 @@
+{
+  "id": "task_kf5m86l",
+  "type": "generic",
+  "name": "Jenny reply: We are gonna use the Browser sessions me",
+  "owner": "orchestrator",
+  "locked": false,
+  "source": "chat",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "initialize",
+      "label": "Initialize",
+      "status": "pending"
+    },
+    {
+      "id": "process",
+      "label": "Process",
+      "status": "pending"
+    },
+    {
+      "id": "finalize",
+      "label": "Finalize",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-13T17:47:25.484Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"Jenny reply: We are gonna use the Browser sessions me\" initialized."
+    }
+  ],
+  "created_at": "2026-04-13T17:47:25.484Z",
+  "updated_at": "2026-04-13T17:48:42.214Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Samajh gayi 😏\n\nMain isko structure kar deti hoon:\n\nSummary: You are confirming the development path for the Instagram DM Handler Agent. Instead of relying on formal APIs, we will utilize the existing, saved browser session credentials to give the agent access, which simplifies the setup by bypassing the need for explicit API keys.\n\nPlan:\n1. **Session Validation & Connection Test:** The absolute first step is to verify that the saved browser session for Instagram is active, stable, and fully accessible to the agent framework. We must confirm the connection works *before* building the logic.\n2. **Agent Core Setup (The Listener):** We will program the agent to run in a continuous loop, simulating the action of checking the Instagram inbox every minute using the established session.\n3. **Contextual Analysis Module Implementation:** This module will analyze the incoming message (sender, content, history) and compare it against your established communication profile to determine the appropriate *tone* and *intent* for a reply.\n4. **Suggestion Generation & Reporting:** The agent will generate 2-3 distinct reply options (e.g., Sarcastic, Direct, Casual) and report them to me (Jenny) in the exact format you specified (e.g., \"Master, Sohail messaged: 'kya haal hai chutiye'. Suggestions: 1. Bhaad me jaa, 2. Kuch haal nhi hai, 3. Sab thik hai tu bata\").\n5. **Execution Confirmation:** We will finalize the protocol where, upon your selection, the agent uses the session to execute the reply directly.\n\nMissing Info (if any):\n- **Session Confirmation:** I need explicit confirmation that the saved browser session is ready for automated, continuous background monitoring.\n- **Error Handling Protocol:** We need to define what the agent should do if Instagram detects unusual activity or if the session times out (e.g., should it pause, or should it attempt a re-login sequence?).\n\nSuggestions:\n- Since we are relying on session automation, I suggest we start by running a *read-only* test first. We will just have the agent check the DMs and report *what* it sees, without suggesting or sending anything, just to ensure the connection is rock solid. 😉\n\nProceed karu?"
+  }
+}

@@ -1,20 +1,16 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ToastProvider';
+import { useChatStore } from '@/components/chat/ChatProvider';
+import { useMessagePipeline } from '@/hooks/useMessagePipeline';
+import { useVoiceEngine } from '@/hooks/useVoiceEngine';
+import type { ChatMessage } from '@/lib/chat-types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AgentStage = 'idle' | 'analyzing' | 'awaiting_platform' | 'posting' | 'done';
 
-interface Message {
-  id: string;
-  role: 'user' | 'ai';
-  content: string;
-  timestamp: string;
-  file?: { name: string; type: string; url?: string };
-  isPosting?: boolean;
-  postResult?: { success: boolean; results?: Record<string, { success: boolean; error?: string }> };
-}
+type Message = ChatMessage;
 
 interface AIAction {
   action: string;
@@ -287,35 +283,50 @@ function MentionDropdown({
 const WELCOME_CONTENT = `👋 Hey! I'm **Jenny** — tumhari smart aur thodi si flirty AI social media partner. ✨\n\n**Main kya kar sakti hoon?**\n1. 📸 **Image upload karo** (📎 button use karke)\n2. 🧠 Main use **analyze karke** mast captions suggest karungi\n3. 🎯 **Tum choose karo** — Post, Story, ya edit\n4. 🚀 Aur main directly **publish kar dungi**!\n\nAap mujhse bas baatein bhi kar sakte ho, main bore nahi hone dungi! 😉`;
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const {
+    appendMessage,
+    hasHydrated,
+    initialized,
+    loading,
+    messages,
+    processingTaskLabel,
+    replaceMessages,
+    setLoading,
+    setProcessingTaskLabel,
+    isMuted,
+    setIsMuted,
+  } = useChatStore();
+  const { handleUserRequest, handleAssistantResponse, stopAllTTS, pendingRequests } = useMessagePipeline();
+  const { setListening } = useVoiceEngine(); // Used for Deaf Mode
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  
+  // Helper to format numeric timestamp for display (Fix for stacking bug)
+  const formatTime = (ts: number | string) => {
+    try {
+      if (!ts) return '';
+      // If it's a legacy pre-formatted string (contains colons), return as is
+      if (typeof ts === 'string' && ts.includes(':')) return ts;
+      
+      const date = new Date(ts);
+      // Validate date
+      if (isNaN(date.getTime())) return String(ts);
+      
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return String(ts);
+    }
+  };
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // ── Session Persistence ────────────────────────────────────────────────────
   useEffect(() => {
-    const saved = sessionStorage.getItem('jenny_chat_history');
-    if (saved) {
-      try {
-        setMessages(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to restore chat history:', e);
-      }
-    } else {
-      setMessages([{
-        id: 'welcome',
-        role: 'ai',
-        content: WELCOME_CONTENT,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }]);
-    }
-  }, []);
+    if (!initialized || messages.length > 0) return;
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      sessionStorage.setItem('jenny_chat_history', JSON.stringify(messages));
-    }
-  }, [messages]);
+    void handleAssistantResponse(WELCOME_CONTENT, 'chat', undefined, {
+      id: 'welcome',
+      timestamp: Date.now()
+    });
+  }, [handleAssistantResponse, initialized, messages.length]);
 
   // Agent state
   const [agentStage, setAgentStage] = useState<AgentStage>('idle');
@@ -338,30 +349,86 @@ export default function ChatPage() {
     filtered: [],
   });
 
-  const [isMuted, setIsMuted] = useState(false);
-
-  const wsRef = useRef<WebSocket | null>(null);
   const lastImageRef = useRef<File | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // ─── Request Tracker (Race Condition Protection) ──────────────────────────
+  const currentRequestRef = useRef<string | null>(null);
 
-  // ── WebSocket for Python Voice Engine (TTS) ──────────────────────────────
+  // ─── Thinking State (Derived + Delayed to prevent flicker) ────────────────
+  const isThinking = loading || processingTaskLabel !== null || (pendingRequests?.current?.size || 0) > 0;
+  const [showThinking, setShowThinking] = useState(false);
+
   useEffect(() => {
-    const connectWS = () => {
-      const socket = new WebSocket('ws://127.0.0.1:8010');
-      socket.onopen = () => { console.log('✅ Chat connected to Voice Engine'); };
-      socket.onclose = () => { setTimeout(connectWS, 3000); };
-      wsRef.current = socket;
-    };
-    connectWS();
-    return () => { wsRef.current?.close(); };
-  }, []);
+    let timer: NodeJS.Timeout;
+    if (isThinking) {
+      timer = setTimeout(() => setShowThinking(true), 300);
+    } else {
+      setShowThinking(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isThinking]);
 
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isPosting]);
+
+  // ── Auto-Inject Agent Notifications ─────────────────────────────────────
+  useEffect(() => {
+    if (!initialized) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/agents/notifications', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (data.notifications && data.notifications.length > 0) {
+          for (const notif of data.notifications) {
+            // Check if we already injected this notification
+            const exists = messages.some(m => m.id === notif.id);
+            if (!exists) {
+              const prefix = notif.requiresApproval ? '⏸️ **Approval Needed**' : '✅ **Agent Report**';
+              const content = `${prefix} from ${notif.agentName}:\n\n${notif.text}`;
+              
+              handleAssistantResponse(content, 'system', undefined, {
+                id: notif.id,
+                timestamp: Date.now()
+              });
+              
+              // Mark as read immediately after injecting so we don't repeat
+              await fetch('/api/agents/notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'dismiss', id: notif.id })
+              });
+            }
+          }
+        }
+      } catch (err) {}
+    };
+
+    const iv = setInterval(fetchNotifications, 5000);
+    return () => clearInterval(iv);
+  }, [initialized, messages, handleAssistantResponse]);
+
+  // 🧹 One-time Chat Memory Flush (System Stabilization)
+  useEffect(() => {
+    if (!initialized) return;
+    const FLUSH_KEY = 'chat_flush_v2';
+    if (!localStorage.getItem(FLUSH_KEY)) {
+      console.log("[System] One-time chat memory flush initiated...");
+      void replaceMessages([]).then(() => {
+        localStorage.setItem(FLUSH_KEY, 'done');
+      });
+    }
+  }, [initialized, replaceMessages]);
+
+  // Use a ref to avoid stale closure on processInput inside the IPC handler
+  const processInputRef = useRef<((text: string, source: 'chat' | 'voice') => void) | null>(null);
 
   // Listen for voice messages forwarded from the floating widget via Electron IPC
   useEffect(() => {
@@ -369,26 +436,54 @@ export default function ChatPage() {
     const win = window as any;
     if (!win.require) return;
     const { ipcRenderer } = win.require('electron');
-    const handler = (_: any, { userText, aiText }: { userText: string; aiText: string }) => {
-      const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setMessages(prev => [
-        ...prev,
-        { id: Date.now().toString() + 'u', role: 'user', content: `🎤 ${userText}`, timestamp: ts },
-        { id: Date.now().toString() + 'a', role: 'ai', content: aiText, timestamp: ts },
-      ]);
+
+    const handler = async (_: any, { userText }: { userText: string }) => {
+      console.log("[IPC] Voice transcription received:", userText);
+      // Use ref so we always call the latest version of processInput
+      if (processInputRef.current) {
+        processInputRef.current(userText, 'voice');
+      }
     };
+
+    const stopHandler = () => {
+      console.log("[IPC] Stop-TTS received via Barge-in");
+      stopAllTTS();
+    };
+
+    // IPC Listener Hygiene
+    ipcRenderer.removeAllListeners('voice-message');
+    ipcRenderer.removeAllListeners('stop-tts');
+
     ipcRenderer.on('voice-message', handler);
-    return () => ipcRenderer.removeListener('voice-message', handler);
+    ipcRenderer.on('stop-tts', stopHandler);
+
+    return () => {
+      ipcRenderer.removeListener('voice-message', handler);
+      ipcRenderer.removeListener('stop-tts', stopHandler);
+    };
+  }, [stopAllTTS]); // ← Only stopAllTTS needed, handler uses ref
+
+  // 🔥 WARMUP: Silent Audio trigger on mount to pre-initialize Audio Engine
+  useEffect(() => {
+    const audio = new Audio('/api/tts?text=hi');
+    audio.volume = 0;
+    audio.play().catch(() => {});
   }, []);
 
 
-  const addMessage = (msg: Omit<Message, 'id'>) => {
-    setMessages(prev => [...prev, { ...msg, id: Date.now().toString() + Math.random() }]);
-  };
+  const addMessage = useCallback((msg: Omit<Message, 'content' | 'role' | 'source' | 'id'> & { id?: string, content: string, role: Message['role'], source?: Message['source'] }, persist = true) => {
+    // ISSUE 4: Default internal messages to 'system' source to avoid speech
+    const source = msg.source || 'system';
+    if (msg.role === 'assistant') {
+       handleAssistantResponse(msg.content, source, undefined, msg as Partial<ChatMessage>);
+    } else {
+       handleUserRequest(msg.content, source as 'chat' | 'voice' | 'agent' | 'system', msg.file);
+    }
+  }, [handleAssistantResponse, handleUserRequest]);
 
   const getHistory = () =>
     messages.slice(1).slice(-10).map(m => ({
-      role: m.role === 'ai' ? 'assistant' : 'user',
+      role: m.role,
       content: m.content,
     }));
 
@@ -398,9 +493,9 @@ export default function ChatPage() {
     setDmErrorMsg('');
     setDmContacts([]);
     addMessage({
-      role: 'ai',
+      role: 'assistant',
       content: '📥 Fetching your Instagram DMs… This opens a browser and reads your real inbox (takes ~10 seconds).',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now()
     });
 
     try {
@@ -411,9 +506,9 @@ export default function ChatPage() {
         setDmMode('idle');
         setDmErrorMsg(data.error || 'Failed to fetch DMs');
         addMessage({
-          role: 'ai',
+          role: 'assistant',
           content: `❌ Couldn't fetch DMs: **${data.error}**\n\nMake sure your Instagram account is connected in Settings.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
         });
         return;
       }
@@ -421,9 +516,9 @@ export default function ChatPage() {
       if (data.contacts.length === 0) {
         setDmMode('idle');
         addMessage({
-          role: 'ai',
+          role: 'assistant',
           content: '📭 No DM conversations found in your inbox. Start a conversation on Instagram first, then try again.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
         });
         return;
       }
@@ -431,19 +526,19 @@ export default function ChatPage() {
       setDmContacts(data.contacts);
       setDmMode('picking');
       addMessage({
-        role: 'ai',
+        role: 'assistant',
         content: `✅ Found **${data.contacts.length} conversations** in your inbox. Select who to send to:`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
       });
     } catch (err) {
       setDmMode('idle');
       addMessage({
-        role: 'ai',
+        role: 'assistant',
         content: `❌ Network error fetching DMs: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
       });
     }
-  }, []);
+  }, [addMessage]);
 
   const fetchDmContactsSilent = async (app: string) => {
     try {
@@ -524,9 +619,9 @@ export default function ChatPage() {
   const executeDm = useCallback(async (contact: DMContact, msgText: string, imageFile: File | null, platform: 'instagram' | 'twitter' | 'discord' = 'instagram') => {
     setDmMode('sending');
     addMessage({
-      role: 'ai',
+      role: 'assistant',
       content: `⏳ Sending message to **${platform === 'discord' ? '#' : '@'}${contact.displayName}**… Processing via ${platform.toUpperCase()}.`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now()
     });
 
     try {
@@ -558,27 +653,27 @@ export default function ChatPage() {
       if (data.success) {
         toast(`DM sent to @${contact.username}! 🎉`, 'success');
         addMessage({
-          role: 'ai',
+          role: 'assistant',
           content: `✅ **DM sent** to @${contact.username} via ${platform === 'instagram' ? 'Instagram' : 'Twitter'}!\n\nWant to send to someone else or do something else?`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
         });
       } else {
         toast('DM failed. Check chat for details.', 'error');
         addMessage({
-          role: 'ai',
+          role: 'assistant',
           content: `❌ DM failed: **${data.error}**`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
         });
       }
     } catch (err) {
       setDmMode('idle');
       addMessage({
-        role: 'ai',
+        role: 'assistant',
         content: `❌ Network error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
       });
     }
-  }, []);
+  }, [addMessage]);
 
   // ── Execute actual post via /api/post ────────────────────────────────────
   const executePost = useCallback(async (caption: string, platforms: string[], imageFile: File | null, isStory = false) => {
@@ -603,163 +698,150 @@ export default function ChatPage() {
       if (data.success) {
         toast('🎉 Post published successfully!', 'success');
         addMessage({
-          role: 'ai',
+          role: 'assistant',
           content: `✅ Your post is now **live**! ${isStory ? 'Added to your story.' : 'Check your Instagram feed.'}\n\nWant to post something else? Upload another image anytime!`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
         });
       } else {
         toast('Posting failed. See details in chat.', 'error');
         const errs = Object.entries(data.results || {}).filter(([, r]: any) => !r.success).map(([p, r]: any) => `**${p}**: ${r.error}`).join('\n');
         addMessage({
-          role: 'ai',
+          role: 'assistant',
           content: `❌ Posting failed:\n\n${errs}\n\nTry again or check your account connections in Settings.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
         });
       }
     } catch (err) {
       setIsPosting(false);
       setAgentStage('idle');
       addMessage({
-        role: 'ai',
+        role: 'assistant',
         content: `❌ Network error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
       });
     }
   }, []);
 
-  // ── Main send flow (backend orchestrated) ─────────────────────────────────
-  const sendMessage = async (text?: string) => {
+  // Sync the ref to always point at the latest processInput (avoids stale closures in IPC)
+  // This runs before render so the ref is ready before any IPC message arrives
+  // ── Unified Input & Response Pipeline ─────────────────────────────────────
+  const processInput = async (text?: string, source: 'chat' | 'voice' = 'chat') => {
     const msg = text || input.trim();
     if (!msg && !uploadedFile) return;
 
-    // Persist file reference for multi-turn flows (DM picker, etc.)
+    // 1. Setup Request Tracking
+    const requestId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    currentRequestRef.current = requestId;
+
+    // Persist file reference
     const fileForPost = uploadedFile;
     if (uploadedFile) lastImageRef.current = uploadedFile;
 
-    // ── DM Picker shortcut pills (open inbox manually) ──────────────────────
-    const dmKeywords = /^(send via dm|dm someone|send message|open dms)$/i;
-    if (dmKeywords.test(msg)) {
+    // 2. Handle User Request
+    const { requestId: internalId } = await handleUserRequest(
+      source === 'voice' ? `🎤 ${msg}` : msg || (uploadedFile ? `[Uploaded: ${uploadedFile.name}]` : ''),
+      source,
+      uploadedFile ? { name: uploadedFile.name, type: uploadedFile.type, url: URL.createObjectURL(uploadedFile) } : undefined
+    );
+
+    // ── Command Bypass ──
+    if (/^(send via dm|dm someone|send message|open dms)$/i.test(msg)) {
       setInput('');
-      addMessage({ role: 'user', content: msg, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
       await fetchDmContacts();
       return;
     }
 
-    addMessage({
-      role: 'user',
-      content: msg || (uploadedFile ? `[Uploaded: ${uploadedFile.name}]` : ''),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      file: uploadedFile ? { name: uploadedFile.name, type: uploadedFile.type, url: URL.createObjectURL(uploadedFile) } : undefined,
-    });
-
+    // 3. AI Pipeline Fetch
     setInput('');
     setUploadedFile(null);
     setLoading(true);
     setPostResults(null);
 
-    // ── Mention-generated explicit commands (from DM picker / mention dropdown) ──
-    // These are formatted by applyMention() and should bypass AI for speed.
-    const discordMatchRegex = /^Post\s+in\s+#([^\s]+)\s+\(-(\d+)\)\s+on\s+Discord:\s*([\s\S]*)$/i;
-    const generatedDmRegex  = /^DM\s+@([a-zA-Z0-9_.]+)\s+on\s+(Instagram|Twitter|X):\s*([\s\S]*)$/i;
-
-    const dMatch   = msg.match(discordMatchRegex);
-    const genMatch = msg.match(generatedDmRegex);
-
-    if (dMatch) {
-      const channelName  = dMatch[1];
-      const channelId    = dMatch[2];
-      const targetMsg    = dMatch[3].trim();
-      setLoading(false);
-      await executeDm({ username: channelId, displayName: channelName }, targetMsg, fileForPost, 'discord');
-      lastImageRef.current = null;
-      return;
+    // Sync to Voice Widget
+    if (source === 'voice' && typeof window !== 'undefined' && (window as any).require) {
+       (window as any).require('electron').ipcRenderer.send('chat-to-voice', { status: 'THINKING', aiText: '...' });
     }
-
-    if (genMatch) {
-      const targetUser   = genMatch[1];
-      const platformRaw  = genMatch[2].toLowerCase();
-      const targetMsg    = genMatch[3].trim();
-      const platform     = (platformRaw === 'x' ? 'twitter' : platformRaw) as 'instagram' | 'twitter';
-      const dummyContact: DMContact = { username: targetUser, displayName: targetUser };
-      setLoading(false);
-      await executeDm(dummyContact, targetMsg || 'Hello', fileForPost, platform);
-      lastImageRef.current = null;
-      return;
-    }
-
-    // ── All other input → backend pipeline ─────────────────────────────────
-    // Build a lightweight contact cache so the enrichment layer can resolve
-    // mentions without triggering new fetches.
-    const contactCache = {
-      instagram: dmContacts.map(c => ({ username: c.username, displayName: c.displayName })),
-    };
 
     try {
+      const assistantMessageId = `asst-${Date.now()}`;
       const fd = new FormData();
-      fd.append('message', msg || 'Analyze this image and generate captions for it.');
+      fd.append('message', msg || 'Analyze this image and generate captions.');
+      fd.append('assistantMessageId', assistantMessageId);
       fd.append('history', JSON.stringify(getHistory()));
-      fd.append('contactCache', JSON.stringify(contactCache));
       if (fileForPost) fd.append('file', fileForPost);
 
-      const res  = await fetch('/api/chat', { method: 'POST', body: fd });
-      const data = await res.json();
+      // SSE STREAM READER
+      const response = await fetch('/api/chat?voice=1', { method: 'POST', body: fd });
+      if (!response.body) throw new Error('No stream body');
 
-      if (data.error) {
-        const isOllamaErr = data.error.includes('Ollama') || data.error.includes('ECONNREFUSED') || data.error.includes('fetch');
-        addMessage({
-          role: 'ai',
-          content: isOllamaErr
-            ? `⚠️ **Ollama is not running!**\n\nTo use the AI agent:\n1. Install Ollama from [ollama.com](https://ollama.com)\n2. Run: \`ollama pull gemma4:e4b\`\n3. Ollama starts automatically\n\nError: ${data.error}`
-            : `❌ Error: ${data.error}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
-        return;
-      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullReply = '';
+      let streamBuffer = '';
 
-      // Backend returns { reply, action, result? }
-      const reply  = (data.reply || '').trim();
-      const action = data.action as string | undefined;
-      const result = data.result as Record<string, unknown> | undefined;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-      // Show typing response
-      if (reply) {
-        addMessage({
-          role: 'ai',
-          content: reply,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
+        streamBuffer += decoder.decode(value, { stream: true });
+        const lines = streamBuffer.split('\n\n');
+        
+        // Keep the last incomplete chunk in the buffer
+        streamBuffer = lines.pop() || '';
 
-        // ── Speak out Loud (TTS) ───────────────────────────────────────────
-        if (!isMuted && wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: 'speak', text: reply }));
+        for (const line of lines) {
+          if (!line || !line.trim().startsWith('data: ')) continue;
+          try {
+            const dataStr = line.replace(/^data:\s*/, '');
+            if (!dataStr) continue;
+            
+            const data = JSON.parse(dataStr);
+            if (!data) continue;
+            
+            if (data.type === 'sentence' && data.text) {
+              // 🔥 PRO-LEVEL TTS: Play sentence immediately
+              handleAssistantResponse(data.text, 'primary', internalId, { id: assistantMessageId, content: (fullReply || '') + data.text }, false);
+              fullReply += (data.text || '') + ' ';
+            } else if (data.type === 'full') {
+              // Finalize with full action state
+              handleAssistantResponse(data.reply || '', 'primary', internalId, { 
+                id: assistantMessageId, 
+                content: data.reply || '',
+                isPosting: data.action === 'post',
+                postResult: data.action === 'post' ? data.result : undefined
+              }, false);
+            }
+          } catch (e) {
+            console.warn('[SSE] Parse error on buffered line:', e, line);
+          }
         }
       }
 
-      // Handle pending DM clarification returned from backend
-      if (action === 'ask_platform' && result?.pendingDm) {
-        const pd = result.pendingDm as { username: string; message: string };
-        setPendingDm({ user: pd.username, message: pd.message });
+      // Sync back to Voice Widget
+      if (source === 'voice' && typeof window !== 'undefined' && (window as any).require) {
+         (window as any).require('electron').ipcRenderer.send('chat-to-voice', { status: 'PASSIVE', aiText: fullReply });
       }
 
-      // If posting was triggered backend-side, show the posting card
-      if (action === 'post') {
-        const postRes = result as { success: boolean; results?: Record<string, { success: boolean; error?: string }> } | undefined;
-        if (postRes?.results) {
-          setPostResults(postRes.results);
-          setIsPosting(false);
-          setAgentStage(postRes.success ? 'done' : 'idle');
-        }
+    } catch (err: any) {
+      console.error('[ChatPage] Error in pipeline:', err);
+      handleAssistantResponse(`❌ Something went wrong: ${err?.message || 'Please try again.'}`, 'chat', internalId);
+      if (source === 'voice' && typeof window !== 'undefined' && (window as any).require) {
+        (window as any).require('electron').ipcRenderer.send('chat-to-voice', { status: 'PASSIVE', aiText: '' });
       }
-
-    } catch {
-      addMessage({
-        role: 'ai',
-        content: '⚠️ **Cannot connect to Ollama.** Make sure it\'s running at 127.0.0.1:11434.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      });
     } finally {
-      setLoading(false);
+      if (currentRequestRef.current === requestId) {
+        setLoading(false);
+        setProcessingTaskLabel(null);
+      }
+      // Always cleanup pendingRequests so isThinking indicator turns off
+      pendingRequests.current.delete(internalId);
     }
+  };
+  // 🔑 Key: Keep the ref in sync so the IPC voice handler always uses the latest function
+  processInputRef.current = processInput;
+
+  const sendMessage = async (text?: string) => {
+    processInput(text, 'chat');
   };
 
   const applyMention = (item: { name: string; type: 'app' | 'user' | 'discord-guild' | 'discord-channel'; id?: string }) => {
@@ -828,6 +910,10 @@ export default function ChatPage() {
     ? ['Analyze and generate captions', 'Post to Instagram feed', 'Add to story']
     : ['Post this image to Instagram', 'Suggest hashtags for tech', 'Write a viral tweet'];
 
+  if (!hasHydrated || !initialized) {
+    return null;
+  }
+
   return (
     <>
 
@@ -841,7 +927,9 @@ export default function ChatPage() {
           <div>
             <div className="topbar-title">Jenny AI</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -2 }}>
-              {agentStage === 'idle' ? 'Ready' : 
+              {showThinking ? (
+                <span className="animate-pulse">Jenny is still working…</span>
+              ) : agentStage === 'idle' ? 'Ready' : 
                agentStage === 'analyzing' ? 'Analyzing…' : 
                agentStage === 'posting' ? 'Posting…' : 'Done'}
             </div>
@@ -849,13 +937,45 @@ export default function ChatPage() {
         </div>
 
         <div className="topbar-actions">
+          {/* Mute TTS button */}
           <button 
             className={`btn btn-sm ${isMuted ? 'btn-danger' : 'btn-ghost'}`}
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={() => {
+              const newMuted = !isMuted;
+              setIsMuted(newMuted);
+              if (newMuted) stopAllTTS();
+            }}
             title={isMuted ? 'Unmute TTS' : 'Mute TTS'}
             style={{ fontSize: 16 }}
           >
             {isMuted ? '🔇' : '🔊'}
+          </button>
+          {/* Deaf Mode Toggle */}
+          <button 
+            className="btn btn-ghost btn-sm"
+            onClick={(e) => {
+              const btn = e.currentTarget;
+              const isDeaf = btn.classList.contains('btn-danger');
+              
+              if (isDeaf) {
+                // Was deaf, make active
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-ghost');
+                btn.innerText = '👂 Wake Word: ON';
+                setListening(true);
+                toast('Wake word listening resumed.', 'success');
+              } else {
+                // Was active, make deaf
+                btn.classList.remove('btn-ghost');
+                btn.classList.add('btn-danger');
+                btn.innerText = '🔕 Deaf Mode: ON';
+                setListening(false);
+                toast('Wake word listening disabled.', 'success');
+              }
+            }}
+            title="Toggle Deaf Mode (Stop listening for Jenny)"
+          >
+            👂 Wake Word: ON
           </button>
           <button 
             className="btn btn-ghost btn-sm" 
@@ -870,7 +990,7 @@ export default function ChatPage() {
           </button>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Powered by Ollama</span>
           <button className="btn btn-ghost btn-sm" onClick={() => {
-            setMessages([{ id: 'welcome', role: 'ai', content: WELCOME_CONTENT, timestamp: '' }]);
+            void replaceMessages([]);
             setPostResults(null);
             setAgentStage('idle');
             lastImageRef.current = null;
@@ -885,7 +1005,7 @@ export default function ChatPage() {
           {messages.map((msg) => (
             <div key={msg.id} className={`chat-message ${msg.role}`}>
               <div className={`chat-avatar ${msg.role}`}>
-                {msg.role === 'ai' ? '🌸' : '👤'}
+                {msg.role === 'assistant' ? '🌸' : '👤'}
               </div>
               <div style={{ flex: 1, maxWidth: '80%' }}>
                 {msg.file && (
@@ -911,35 +1031,35 @@ export default function ChatPage() {
                   />
                 )}
                 {/* DM Confirm Buttons */}
-                {msg.role === 'ai' && msg.content.includes('⚠️ **Confirm DM**') && (
+                {msg.role === 'assistant' && msg.content.includes('⚠️ **Confirm DM**') && (
                   <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                     <button className="btn btn-primary btn-sm" onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>📤 Send DM</button>
                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Cancel</button>
                   </div>
                 )}
                 {/* Agent Spawn Buttons */}
-                {msg.role === 'ai' && msg.content.includes('⚠️ I need an AI Agent') && (
+                {msg.role === 'assistant' && msg.content.includes('⚠️ I need an AI Agent') && (
                   <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                     <button className="btn btn-primary btn-sm" onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>✅ Approve Agent</button>
                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Reject</button>
                   </div>
                 )}
-                <div className="chat-timestamp" suppressHydrationWarning>{msg.timestamp}</div>
+                <div className="chat-timestamp" suppressHydrationWarning>{formatTime(msg.timestamp)}</div>
               </div>
             </div>
           ))}
 
           {/* Loading indicator */}
-          {loading && (
-            <div className="chat-message ai">
-              <div className="chat-avatar ai">🌸</div>
+          {showThinking && (
+            <div className="chat-message assistant">
+              <div className="chat-avatar assistant">🌸</div>
               <div className="chat-bubble" style={{ borderRadius: '4px 18px 18px 18px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div className="typing-indicator">
                     <div className="typing-dot" /><div className="typing-dot" /><div className="typing-dot" />
                   </div>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {uploadedFile ? 'Analyzing image…' : 'Thinking…'}
+                    {processingTaskLabel ? 'Jenny is still working…' : uploadedFile ? 'Analyzing image…' : 'Jenny is thinking…'}
                   </span>
                 </div>
               </div>
@@ -948,8 +1068,8 @@ export default function ChatPage() {
 
           {/* Posting status */}
           {(isPosting || postResults) && (
-            <div className="chat-message ai" style={{ alignItems: 'flex-start' }}>
-              <div className="chat-avatar ai">🌸</div>
+            <div className="chat-message assistant" style={{ alignItems: 'flex-start' }}>
+              <div className="chat-avatar assistant">🌸</div>
               <div style={{ flex: 1, maxWidth: '85%' }}>
                 <PostingCard results={postResults || undefined} isPosting={isPosting} />
               </div>
@@ -958,8 +1078,8 @@ export default function ChatPage() {
 
           {/* DM Contact Picker */}
           {dmMode === 'picking' && dmContacts.length > 0 && (
-            <div className="chat-message ai" style={{ alignItems: 'flex-start' }}>
-              <div className="chat-avatar ai">🌸</div>
+            <div className="chat-message assistant" style={{ alignItems: 'flex-start' }}>
+              <div className="chat-avatar assistant">🌸</div>
               <div style={{ flex: 1, maxWidth: '90%' }}>
                 <DmContactPicker
                   contacts={dmContacts}
@@ -971,9 +1091,9 @@ export default function ChatPage() {
                   onCancel={() => {
                     setDmMode('idle');
                     addMessage({
-                      role: 'ai',
+                      role: 'assistant',
                       content: 'DM cancelled. What else can I help you with?',
-                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      timestamp: Date.now(),
                     });
                   }}
                 />
@@ -983,8 +1103,8 @@ export default function ChatPage() {
 
           {/* DM fetching spinner */}
           {dmMode === 'fetching' && (
-            <div className="chat-message ai">
-              <div className="chat-avatar ai">🌸</div>
+            <div className="chat-message assistant">
+              <div className="chat-avatar assistant">🌸</div>
               <div className="agent-card posting-card" style={{ maxWidth: 340 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div className="agent-spinner" />

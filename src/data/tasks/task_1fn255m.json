@@ -1,0 +1,36 @@
+{
+    "id":  "task_1fn255m",
+    "type":  "generic",
+    "name":  "Jenny reply: nan",
+    "owner":  "orchestrator",
+    "locked":  false,
+    "source":  "chat",
+    "status":  "failed",
+    "progress":  10,
+    "steps":  [
+                  {
+                      "id":  "initialize",
+                      "label":  "Initialize",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "process",
+                      "label":  "Process",
+                      "status":  "pending"
+                  },
+                  {
+                      "id":  "finalize",
+                      "label":  "Finalize",
+                      "status":  "pending"
+                  }
+              ],
+    "logs":  [
+                 {
+                     "timestamp":  "2026-04-13T20:44:28.784Z",
+                     "level":  "info",
+                     "message":  "[SYSTEM] Task \"Jenny reply: nan\" initialized."
+                 }
+             ],
+    "created_at":  "2026-04-13T20:44:28.784Z",
+    "updated_at":  "2026-04-13T20:44:28.784Z"
+}

@@ -1,0 +1,47 @@
+{
+  "id": "task_ae9rjzw",
+  "type": "execution",
+  "name": "Delete Agent: agent_rpcyitv",
+  "owner": "orchestrator",
+  "locked": true,
+  "source": "orchestrator",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "prepare_tools",
+      "label": "Prepare Tools",
+      "status": "pending"
+    },
+    {
+      "id": "execute_payload",
+      "label": "Execute Payload",
+      "status": "pending"
+    },
+    {
+      "id": "verify_output",
+      "label": "Verify Output",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-15T20:39:38.287Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"Delete Agent: agent_rpcyitv\" initialized."
+    },
+    {
+      "timestamp": "2026-04-15T20:39:38.290Z",
+      "level": "info",
+      "step": "execute_payload",
+      "message": "⚙️ Initiating tool: manage_agent..."
+    },
+    {
+      "timestamp": "2026-04-15T20:39:38.296Z",
+      "level": "info",
+      "message": "✅ Tool manage_agent completed successfully."
+    }
+  ],
+  "created_at": "2026-04-15T20:39:38.287Z",
+  "updated_at": "2026-04-15T20:39:38.297Z"
+}

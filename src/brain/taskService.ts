@@ -116,6 +116,18 @@ export async function createTask(data: Partial<Task>): Promise<Task> {
 }
 
 /**
+ * Checks if a task exists on disk.
+ */
+export async function exists(id: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(path.join(TASKS_DIR, `${id}.json`));
+    return stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Fetches a task by ID.
  */
 export async function getTask(id: string): Promise<Task | null> {
@@ -139,6 +151,27 @@ export async function updateTask(id: string, updates: Partial<Task>, requester: 
   if (task.locked && task.owner !== requester) {
     console.error(`[Task Guard] Update rejected for ${id}. Owner: ${task.owner}, Requester: ${requester}`);
     throw new Error(`Task ${id} is locked by ${task.owner}. Access denied.`);
+  }
+
+  // Lifecycle Enforcement: created -> processing -> (waiting_input <-> processing) -> completed/failed
+  if (updates.status && updates.status !== task.status) {
+    const current = task.status;
+    const next = updates.status;
+
+    const allowedTransitions: Record<TaskStatus, TaskStatus[]> = {
+      'created': ['processing', 'failed', 'abandoned'],
+      'processing': ['waiting_input', 'completed', 'failed', 'partial'],
+      'waiting_input': ['processing', 'abandoned', 'failed'],
+      'partial': ['processing', 'completed', 'failed'],
+      'completed': [],
+      'failed': [],
+      'abandoned': []
+    };
+
+    if (!allowedTransitions[current].includes(next)) {
+      console.warn(`[Lifecycle Guard] Illegal transition: ${current} -> ${next}. Skipping status update.`);
+      delete updates.status; 
+    }
   }
 
   task = {

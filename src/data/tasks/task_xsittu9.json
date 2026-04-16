@@ -1,0 +1,45 @@
+{
+  "id": "task_xsittu9",
+  "type": "create_agent",
+  "name": "CREATE_AGENT: Restart dm monitor pro ag",
+  "owner": "orchestrator",
+  "locked": true,
+  "source": "orchestrator",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "analyze_intent",
+      "label": "Analyze Intent",
+      "status": "pending"
+    },
+    {
+      "id": "provision_workspace",
+      "label": "Provision Workspace",
+      "status": "pending"
+    },
+    {
+      "id": "generate_dna",
+      "label": "Generate Dna",
+      "status": "pending"
+    },
+    {
+      "id": "register_agent",
+      "label": "Register Agent",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-15T20:50:30.741Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"CREATE_AGENT: Restart dm monitor pro ag\" initialized."
+    }
+  ],
+  "created_at": "2026-04-15T20:50:30.741Z",
+  "updated_at": "2026-04-15T20:51:11.098Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Maine dekha ki aapko `DM_Monitor_Pro` agent ko restart karna hai. Iske liye, main **manage_agent** tool ka use karungi. Yeh tool OpenClaw system mein existing agents ke lifecycle ko manage karne ke liye hai, jismein restart karna bhi shaamil hai.\n\nI'll use the **manage_agent** tool because it's the designated system control mechanism for agent state changes.\n\nConfirm karu?"
+  }
+}

@@ -1,10 +1,10 @@
 /**
  * Brain State Manager
- * Unified store for pending actions awaiting user confirmation.
+ * Unified store for pending actions and agent notifications.
  */
 
 export interface PendingAction {
-  type: 'dm' | 'agent_spawn' | 'agent_edit';
+  type: 'dm' | 'agent_spawn' | 'agent_edit' | 'agent_delete';
   data: any;
 }
 
@@ -22,17 +22,71 @@ export function clearPendingAction() {
   pendingAction = null;
 }
 
-export let agentNotifications: { agentId: string, agentName: string, text: string, timestamp: string }[] = [];
+// ─── Agent Notification System ────────────────────────────────────────────────
 
-export function addAgentNotification(agentId: string, agentName: string, text: string) {
-  agentNotifications.push({
+export interface AgentNotification {
+  id: string;
+  agentId: string;
+  agentName: string;
+  text: string;
+  timestamp: string;
+  type: 'approval_needed' | 'completion' | 'error';
+  read: boolean;
+  requiresApproval: boolean;
+}
+
+export let agentNotifications: AgentNotification[] = [];
+
+export function addAgentNotification(
+  agentId: string,
+  agentName: string,
+  text: string,
+  type: AgentNotification['type'] = 'completion',
+  requiresApproval = false
+) {
+  // Deduplicate: skip if same agent sent same text within last 60 seconds
+  const now = Date.now();
+  const duplicate = agentNotifications.find(
+    n => n.agentId === agentId && n.text === text && !n.read
+  );
+  if (duplicate) return;
+
+  const notification: AgentNotification = {
+    id: `notif_${now}_${Math.random().toString(36).slice(2, 6)}`,
     agentId,
     agentName,
     text,
-    timestamp: new Date().toLocaleTimeString()
-  });
-  // Keep only last 10 notifications to avoid memory bloat
-  if (agentNotifications.length > 10) agentNotifications.shift();
+    timestamp: new Date().toLocaleTimeString(),
+    type,
+    read: false,
+    requiresApproval,
+  };
+
+  agentNotifications.push(notification);
+
+  // Keep last 20 notifications
+  if (agentNotifications.length > 20) agentNotifications.shift();
+}
+
+export function markNotificationRead(id: string) {
+  const notif = agentNotifications.find(n => n.id === id);
+  if (notif) notif.read = true;
+}
+
+export function markAllNotificationsRead() {
+  agentNotifications.forEach(n => { n.read = true; });
+}
+
+export function getPendingNotifications(): AgentNotification[] {
+  return agentNotifications.filter(n => !n.read);
+}
+
+export function getUnreadCount(): number {
+  return agentNotifications.filter(n => !n.read).length;
+}
+
+export function getPendingApprovalCount(): number {
+  return agentNotifications.filter(n => !n.read && n.requiresApproval).length;
 }
 
 export function clearAgentNotifications() {

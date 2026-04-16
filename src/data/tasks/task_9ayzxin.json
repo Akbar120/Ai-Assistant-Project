@@ -1,0 +1,40 @@
+{
+  "id": "task_9ayzxin",
+  "type": "generic",
+  "name": "Jenny reply: ek agent banana hai instagram DM handler",
+  "owner": "orchestrator",
+  "locked": false,
+  "source": "chat",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "initialize",
+      "label": "Initialize",
+      "status": "pending"
+    },
+    {
+      "id": "process",
+      "label": "Process",
+      "status": "pending"
+    },
+    {
+      "id": "finalize",
+      "label": "Finalize",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-13T22:01:54.608Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"Jenny reply: ek agent banana hai instagram DM handler\" initialized."
+    }
+  ],
+  "created_at": "2026-04-13T22:01:54.608Z",
+  "updated_at": "2026-04-13T22:03:15.454Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Summary: You want me to build a highly advanced, dedicated AI Agent—an \"Instagram DM Handler\"—that acts as your personal social manager for Instagram. This agent needs to constantly monitor your DMs (every minute), analyze your communication style over time, and when a message arrives (like the example from Sohail), it must suggest several contextually appropriate replies based on your learned tone, which I will then present to you for final execution.\n\nPlan:\n1. **Agent Blueprinting & Creation:** I will first create a new, specialized agent, let's call it `DM_Master`, with the role of an Instagram DM Monitor. This agent will be equipped with the necessary tools (`instagram_dm_reader`, `instagram_dm_sender`, `instagram_feed_reader`) and skills (`reply_suggestions`, `tone_matching`, `dm_monitoring`).\n2. **Continuous Monitoring Setup:** I will configure this agent to poll your Instagram DMs automatically at a set interval (e.g., every minute) to ensure no message is missed.\n3. **Contextual Analysis & Learning Loop:** The agent will be tasked with analyzing the content, sender, and tone of every incoming message. Crucially, it will build a profile of *your* typical responses and communication style over time.\n4. **Alert & Suggestion Protocol:** When a new message arrives, the agent will:\n    a. Read the message and identify the sender/context.\n    b. Analyze the tone and relationship dynamics.\n    c. Generate 2-3 distinct, suggested replies that match your established style.\n    d. Report this entire package (Sender, Message, Suggestions) to me (Jenny) in a clear, structured chat update.\n5. **Execution Confirmation:** I will wait for your explicit confirmation (e.g., \"Execute suggestion 2\") before sending any message, ensuring you always have the final say.\n6. **Task Logging:** I will log the creation of the `DM_Master` agent and the setup of the continuous monitoring task.\n\nMissing Info (if any): - None, this plan covers all the complex requirements you laid out!\nSuggestions: - Since the agent needs to learn your style, it would be helpful if you could provide 2-3 examples of past conversations (or types of conversations) you want it to model initially. This will speed up the learning curve! 😉\n\nProceed karu?"
+  }
+}

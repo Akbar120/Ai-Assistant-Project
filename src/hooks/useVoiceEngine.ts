@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
@@ -76,5 +77,23 @@ export function useVoiceEngine(onTranscript?: (text: string) => void) {
     }
   }, []);
 
-  return { status, ttsStatus, speak };
+  /**
+   * setListening: Toggle wake word detection on/off.
+   * true  = resume passive listening (wake word detection active)
+   * false = go fully deaf (sends 'sleep' command — no wake word detection)
+   */
+  const setListening = useCallback((enabled: boolean) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    if (enabled) {
+      // Resume passive listening
+      wsRef.current.send(JSON.stringify({ type: 'set_conversation', value: false }));
+      console.log('[VoiceEngine] Resumed wake word listening.');
+    } else {
+      // Go fully deaf — Python engine enters PASSIVE but we override to sleep
+      wsRef.current.send(JSON.stringify({ type: 'sleep' }));
+      console.log('[VoiceEngine] Wake word listening disabled (deaf mode).');
+    }
+  }, []);
+
+  return { status, ttsStatus, speak, setListening };
 }

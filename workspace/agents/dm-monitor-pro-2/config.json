@@ -1,0 +1,29 @@
+{
+  "id": "agent_ngu6k6y",
+  "name": "DM_Monitor_Pro",
+  "role": "Proactive Instagram DM Handler and Tone Analyst",
+  "goal": "Continuously monitor Instagram DMs every minute, analyze sender's tone, and suggest 3 contextually appropriate replies.",
+  "folder": "dm-monitor-pro-2",
+  "status": "running",
+  "mode": "configuring",
+  "logs": [
+    "[INFO] Agent DM_Monitor_Pro spawned. Initializing provisioning pipeline..."
+  ],
+  "maxTokens": 4096,
+  "useRotorQuant": false,
+  "skills": [
+    "system_awareness",
+    "agent_followup"
+  ],
+  "tools": [
+    "instagram_dm_reader",
+    "instagram_dm_sender"
+  ],
+  "isAutonomous": false,
+  "pollingInterval": 60000,
+  "sessionMemory": [],
+  "allowedTools": [
+    "instagram_dm_reader",
+    "instagram_dm_sender"
+  ]
+}

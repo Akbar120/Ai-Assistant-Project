@@ -1,0 +1,45 @@
+{
+  "id": "task_ew53mha",
+  "type": "create_agent",
+  "name": "CREATE_AGENT: create the agent deletion",
+  "owner": "orchestrator",
+  "locked": true,
+  "source": "orchestrator",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "analyze_intent",
+      "label": "Analyze Intent",
+      "status": "pending"
+    },
+    {
+      "id": "provision_workspace",
+      "label": "Provision Workspace",
+      "status": "pending"
+    },
+    {
+      "id": "generate_dna",
+      "label": "Generate Dna",
+      "status": "pending"
+    },
+    {
+      "id": "register_agent",
+      "label": "Register Agent",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-15T18:36:32.249Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"CREATE_AGENT: create the agent deletion\" initialized."
+    }
+  ],
+  "created_at": "2026-04-15T18:36:32.249Z",
+  "updated_at": "2026-04-15T18:37:14.768Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Maine aapka naya agent skill banane ka request samajh liya hai. Aap chahte hain ki ek naya skill banaya jaaye jo kisi bhi agent ko delete karne se pehle aapki explicit permission (explicit permission) maange.\n\nIske liye, main ek naya custom skill design karunga jiska naam hoga `Agent_Deletion_Guard`.\n\n**Skill Design:**\n\n1.  **Skill Name:** `Agent_Deletion_Guard`\n2.  **Purpose:** To intercept and halt any command attempting to delete an agent or critical system component.\n3.  **Core Logic:** The skill will wrap the deletion function. When triggered, it will *not* execute the deletion immediately. Instead, it will pause execution and prompt the user with a mandatory confirmation step.\n4.  **Confirmation Mechanism:** The prompt will require the user to type a specific passphrase (e.g., \"DELETE_CONFIRM_KEY\") to proceed.\n\n**Kya main is skill ko bana sakta hoon?**\n\nEk LLM ke roop mein, main *code* ya *system-level functions* ko directly modify ya naya skill *deploy* nahi kar sakta. Lekin, main aapko is skill ka **blueprint (design)** de sakta hoon, jise aap apne development environment mein implement karwa sakte hain.\n\n**Blueprint (Implementation Guide):**\n\nAgar aap isse ek function ke roop mein use karna chahte hain, toh iska structure kuch aisa hoga:\n\n```python\ndef Agent_Deletion_Guard(target_agent_name: str) -> str:\n    \"\"\"\n    Intercepts and guards against the deletion of any specified agent.\n    Requires explicit confirmation passphrase to proceed.\n    \"\"\"\n    print(\"=====================================================\")\n    print(f\"🚨 WARNING: Attempting to delete agent: {target_agent_name}\")\n    print(\"🚨 This action is irreversible and requires high authorization.\")\n    print(\"=====================================================\")\n    \n    # 1. Prompt for Confirmation\n    confirmation_passphrase = input(\"Please enter the mandatory confirmation passphrase to proceed with deletion: \")\n    \n    # 2. Check Passphrase\n    if confirmation_passphrase.strip() == \"DELETE_CONFIRM_KEY\":\n        print(\"\\n✅ Confirmation received. Executing deletion sequence...\")\n        # --- Yahan asli deletion code aayega ---\n        # delete_agent(target_agent_name) \n        return f\"SUCCESS: Agent '{target_agent_name}' has been successfully deleted.\"\n    else:\n        print(\"\\n❌ ERROR: Invalid passphrase provided. Deletion aborted.\")\n        return f\"FAILURE: Deletion of agent '{target_agent_name}' was blocked by the Guard Skill.\"\n\n# Example Usage:\n# print(Agent_Deletion_Guard(\"Old_Bot_V1\"))\n```\n\n**Summary:**\n\n*   **Kya kiya:** Maine aapke requirement ke hisaab se `Agent_Deletion_Guard` ka conceptual design aur Python-like blueprint provide kiya.\n*   **Aapko kya karna hoga:** Is blueprint ko apne actual system ke code mein integrate karna hoga.\n\nKya aap chahte hain ki main is skill ke liye koi **test case** ya **documentation** banaun?"
+  }
+}
