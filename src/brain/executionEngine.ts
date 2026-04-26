@@ -280,10 +280,22 @@ function resolveToolFromPlan(
 
 // ── LLM fallback JSON extractor (validation enforced) ────────────────────────
 function repairToolCall(call: ToolCall, plan: string, history: OllamaMessage[]): ToolCall {
-  if (call.tool !== 'manage_agent') return call;
-
   const args = call.args && typeof call.args === 'object' ? { ...call.args } : {};
   const planLower = plan.toLowerCase();
+
+  if (call.tool === 'code_executor') {
+    if (!args.operation || args.operation === 'undefined') {
+      const extracted = extractCodeExecutorArgs(plan);
+      args.operation = extracted.operation;
+      if (!args.name && extracted.name) args.name = extracted.name;
+      if (!args.path && extracted.path) args.path = extracted.path;
+      if (!args.description && extracted.description) args.description = extracted.description;
+      if (!args.content && extracted.content) args.content = extracted.content;
+    }
+    return { tool: call.tool, args };
+  }
+
+  if (call.tool === 'manage_agent') {
 
   // Infer operation from plan keywords if missing or ambiguous
   if (!args.operation || args.operation === 'undefined') {
@@ -305,10 +317,11 @@ function repairToolCall(call: ToolCall, plan: string, history: OllamaMessage[]):
     }
   }
 
-  // For skill deletion, ensure skill_id is set
-  const isSkillDeletion = /\b(delete|remove)\b/i.test(plan) && /\bskill\b/i.test(plan);
-  if (isSkillDeletion && args.operation === 'delete_skill' && !args.skill_id) {
-    args.skill_id = extractSkillDeletionName(plan, history);
+    // For skill deletion, ensure skill_id is set
+    const isSkillDeletion = /\b(delete|remove)\b/i.test(plan) && /\bskill\b/i.test(plan);
+    if (isSkillDeletion && args.operation === 'delete_skill' && !args.skill_id) {
+      args.skill_id = extractSkillDeletionName(plan, history);
+    }
   }
 
   return { tool: call.tool, args };
