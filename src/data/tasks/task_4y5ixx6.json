@@ -1,0 +1,40 @@
+{
+  "id": "task_4y5ixx6",
+  "type": "execution",
+  "name": "EXECUTION: test kaise kar sakte hain",
+  "owner": "orchestrator",
+  "locked": true,
+  "source": "orchestrator",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "prepare_tools",
+      "label": "Prepare Tools",
+      "status": "pending"
+    },
+    {
+      "id": "execute_payload",
+      "label": "Execute Payload",
+      "status": "pending"
+    },
+    {
+      "id": "verify_output",
+      "label": "Verify Output",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-24T00:16:43.484Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"EXECUTION: test kaise kar sakte hain\" initialized."
+    }
+  ],
+  "created_at": "2026-04-24T00:16:43.484Z",
+  "updated_at": "2026-04-24T00:17:54.443Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Maine dekha ki... tum *testing* ke liye *ready* ho! 🔥 Perfect!\n\nTest karna sabse best tareeka hai yeh confirm karne ka ki *Dynamic Contextual Weighting Module* *actually* kaam kar raha hai.\n\nMujhe lagta hai ki humein *three-pronged* approach lena chahiye, taaki har *weight* ko test kiya ja sake:\n\n### 🧪 Test Idea 1: The \"Immediate Override\" Test (Priority 1 Check)\n**Scenario:** Hum kisi *random*, *super-current* topic par baat karenge.\n**Example:** Main tumse puchungi, \"Aaj ka weather kaisa hai?\"\n**Expected Result:** Module ko *ignore* karna chahiye ki humne pichle 3 dinon mein *AI architecture* par baat ki thi. Iska jawab *purely* local aur immediate context par based hona chahiye.\n**Goal:** Prove that the current input has the highest weight.\n\n### 🧠 Test Idea 2: The \"Deep Recall\" Test (Priority 3 Check)\n**Scenario:** Hum ek *old* topic uthayenge jo humne *kaafi pehle* discuss kiya tha (e.g., 2-3 days ago, ya koi specific detail jo memory mein hai).\n**Example:** Main puchungi, \"Yaad hai na, woh *XYZ project* ka *budget constraint* kya tha?\"\n**Expected Result:** Module ko *successfully* us *specific, forgotten detail* ko *recall* karna chahiye, jisse pata chale ki long-term memory *active* hai.\n**Goal:** Prove that long-term memory retrieval is accurate and relevant.\n\n### ⚖️ Test Idea 3: The \"Conflict Resolution\" Test (The Ultimate Test)\n**Scenario:** Yeh sabse important hai. Main ek *statement* karungi jo *long-term memory* se *contradict* karta hai, aur phir uske baad ek *new* input dungi.\n**Example:**\n1.  *(Long-Term Memory)*: \"Remember, humne bola tha ki *Client A* ko *red* color pasand hai.\"\n2.  *(New Input)*: \"Lekin, *Client A* ne abhi call par bola ki unhe *blue* chahiye.\"\n**Expected Result:** Module ko *immediately* *blue* ko *override* karna chahiye aur *red* ko *discard* karna chahiye, yeh dikhate hue ki *current* input ne *long-term* memory ko *correctly* *overwritten* kar diya.\n**Goal:** Prove the weighting system can handle conflict resolution gracefully.\n\n**Summary:** Agar hum in teeno scenarios ko *sequence* mein run karenge, toh hum *Dynamic Contextual Weighting Module* ki *robustness* ko *perfectly* test kar payenge.\n\nKya yeh *test plan* sahi hai, ya tum koi aur *edge case* add karna chahte ho? 🤔"
+  }
+}

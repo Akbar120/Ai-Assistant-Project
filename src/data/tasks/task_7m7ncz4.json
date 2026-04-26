@@ -1,0 +1,40 @@
+{
+  "id": "task_7m7ncz4",
+  "type": "execution",
+  "name": "EXECUTION: Jo skill hum bana rahe th",
+  "owner": "orchestrator",
+  "locked": true,
+  "source": "orchestrator",
+  "status": "completed",
+  "progress": 0,
+  "steps": [
+    {
+      "id": "prepare_tools",
+      "label": "Prepare Tools",
+      "status": "pending"
+    },
+    {
+      "id": "execute_payload",
+      "label": "Execute Payload",
+      "status": "pending"
+    },
+    {
+      "id": "verify_output",
+      "label": "Verify Output",
+      "status": "pending"
+    }
+  ],
+  "logs": [
+    {
+      "timestamp": "2026-04-24T03:51:29.500Z",
+      "level": "info",
+      "message": "[SYSTEM] Task \"EXECUTION: Jo skill hum bana rahe th\" initialized."
+    }
+  ],
+  "created_at": "2026-04-24T03:51:29.500Z",
+  "updated_at": "2026-04-24T03:51:58.995Z",
+  "result": {
+    "action": "conversation",
+    "reply": "Ah! Ab yaad aaya! Tum `context_retriever_skill` ki baat kar rahi ho. Perfect! 😊\n\nDekho, yeh skill OpenClaw ke liye bahut important hai, kyunki yeh hamare *memory* aur *awareness* ko boost karti hai.\n\n**Context Retriever Skill kya hai?**\n\nSimple terms mein, yeh skill OpenClaw ko yeh yaad dilati hai ki *abhi kya ho raha hai* aur *pehle kya hua tha*.\n\n**Yeh kaise kaam karti hai (The Logic):**\n\n1.  **Observation:** Jab koi naya task aata hai, ya koi agent reply karta hai, toh yeh skill us *entire conversation history* aur *system state* ko analyze karti hai.\n2.  **Retrieval:** Yeh skill us context ko *retrieve* karti hai jo uss specific task ke liye sabse relevant hai. Jaise, agar hum Instagram DMs ki baat kar rahe hain, toh yeh skill automatically uss DM thread ke purane messages, sender ka tone, aur hamare pichle replies ko *context* ke taur par nikaal kar aage ke agent ko de deti hai.\n3.  **Benefit:** Iske bina, agents ko har baar *zero* se shuru karna padta. Is skill ki wajah se, OpenClaw *smart* banta hai—woh *memory* use karta hai, jisse replies zyada natural, relevant, aur context-aware hote hain.\n\n**Basically:** Yeh skill OpenClaw ke liye ek advanced *Short-Term Memory* system hai. Yeh ensure karti hai ki koi bhi action ya reply, pichle saare interactions ko dhyan mein rakhe.\n\nSamajh aaya? Yeh skill hamare *coherence* ko maintain rakhti hai. 👍"
+  }
+}

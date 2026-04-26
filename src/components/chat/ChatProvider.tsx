@@ -23,6 +23,10 @@ interface ChatContextValue {
   setLoading: (loading: boolean) => void;
   isMuted: boolean;
   setIsMuted: (muted: boolean) => void;
+  isSpeaking: boolean;
+  setIsSpeaking: (speaking: boolean) => void;
+  updateMessage: (id: string, updates: Partial<ChatMessage>, persist?: boolean) => Promise<void>;
+  isOllamaOnline: boolean;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -39,10 +43,14 @@ function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
     const incomingContent = (message.content || '').trim();
     const lastContent = (last?.content || '').trim();
     
+    // Normalize for duplicate check (lowercase and remove basic punctuation)
+    const normIncoming = incomingContent.toLowerCase().replace(/[.,!?;]$/, '').trim();
+    const normLast = lastContent.toLowerCase().replace(/[.,!?;]$/, '').trim();
+    
     if (
       last &&
       last.role === message.role &&
-      (last.hash === message.hash || lastContent === incomingContent) &&
+      (last.hash === message.hash || normLast === normIncoming) &&
       incomingContent.length > 0 &&
       Math.abs((typeof last.timestamp === 'number' ? last.timestamp : 0) - (typeof message.timestamp === 'number' ? message.timestamp : 0)) < 3000
     ) {
@@ -83,7 +91,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [processingTaskLabel, setProcessingTaskLabel] = useState<string | null>(null);
+  const [isOllamaOnline, setIsOllamaOnline] = useState(false);
   const latestMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -170,6 +180,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     return () => window.clearInterval(intervalId);
   }, [initialized, loading, processingTaskLabel, refreshLatestMessages, refreshProcessingState]);
+
+  useEffect(() => {
+    const checkOllama = async () => {
+      try {
+        const res = await fetch('/api/status', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          setIsOllamaOnline(data.ollama?.running ?? false);
+        } else {
+          setIsOllamaOnline(false);
+        }
+      } catch {
+        setIsOllamaOnline(false);
+      }
+    };
+    checkOllama();
+    const iv = setInterval(checkOllama, 10000); // Check every 10s
+    return () => clearInterval(iv);
+  }, []);
   // NOTE: The immediate-fire effect that was here was REMOVED.
   // It was firing every time `loading` changed (which happens after EVERY message append),
   // causing a poll that refetched the just-saved message and created a duplicate.
@@ -208,6 +237,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     setMessages(nextMessages);
   }, []);
+  
+  const updateMessage = useCallback(async (id: string, updates: Partial<ChatMessage>, persist = true) => {
+    let updatedMessage: ChatMessage | undefined;
+    let latestMessages: ChatMessage[] = [];
+    
+    setMessages((current) => {
+      const next = current.map(m => {
+        if (m.id === id) {
+          updatedMessage = { ...m, ...updates };
+          return updatedMessage;
+        }
+        return m;
+      });
+      latestMessages = next;
+      return next;
+    });
+
+    if (persist && updatedMessage && latestMessages.length > 0) {
+      // Persist the entire updated message list
+      await persistMessages(latestMessages).catch(() => undefined);
+    }
+  }, []);
 
   const value = useMemo<ChatContextValue>(() => ({
     appendMessage,
@@ -221,7 +272,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setLoading,
     isMuted,
     setIsMuted,
-  }), [appendMessage, hasHydrated, initialized, loading, messages, processingTaskLabel, setProcessingTaskLabel, replaceMessages, isMuted, setIsMuted]);
+    isSpeaking,
+    setIsSpeaking,
+    updateMessage,
+    isOllamaOnline,
+  }), [appendMessage, hasHydrated, initialized, loading, messages, processingTaskLabel, setProcessingTaskLabel, replaceMessages, isMuted, setIsMuted, isSpeaking, setIsSpeaking, updateMessage, isOllamaOnline]);
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

@@ -1,848 +1,725 @@
 /**
- * ORCHESTRATOR — LLM decision layer (OPTIMIZED FOR SPEED)
- * ─────────────────────────────────────────────────────────────
- * Receives: (message, history, enriched context)
- * Calls:    Ollama gemma4:e4b with a JSON-forcing system prompt
- * Returns:  { action, data, reply }
+ * ORCHESTRATOR — System-Controlled 5-Mode Engine (v4)
+ * ─────────────────────────────────────────────────────
+ *
+ * ARCHITECTURE:
+ *   LLM is used ONLY for reasoning (analyze, planning, confirmation text).
+ *   LLM NEVER controls execution.
+ *   SYSTEM controls all mode transitions and tool dispatch.
+ *
+ * FLOW:
+ *   user message
+ *     → SYSTEM checks approval (pure regex, no LLM)
+ *     → SYSTEM classifies intent (LLM assist, then guarded)
+ *     → SYSTEM enforces transition (hard state machine)
+ *     → mode-specific LLM prompt (reasoning only)
+ *     → SYSTEM validates response
+ *     → if execution: system calls tools directly via executionEngine
+ *     → result returned
+ *
+ * FORBIDDEN:
+ *   ❌ LLM deciding what tool to call
+ *   ❌ LLM text returned as "execution"
+ *   ❌ Skipping confirmation
+ *   ❌ Planning → Execution directly
  */
 
-import fs from 'fs';
-import path from 'path';
-import { ollamaChat, ollamaChatWithSentenceCallback, OllamaMessage, getActiveModel } from '@/lib/ollama';
-import { matchSkills, buildSkillContext, SkillMatch } from './skillsEngine';
+import { ollamaChat, ollamaChatWithSentenceCallback, OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
 import type { EnrichedInput } from '@/services/inputEnrichment';
-import { getKnowledge } from '@/services/knowledge';
-import { getAgentStore, saveAgentStore } from './agentManager';
-import { createTask, getAllTasks, updateTask, TaskStatus, appendLog, exists as taskExists } from './taskService';
-import { get_channels, get_config, get_agents, get_tasks, get_skills } from './tools/reality';
-import { ALL_TOOLS } from './toolRegistry';
-import { setPendingAction } from './state';
+import { getAgentStore } from './agentManager';
+import { matchSkills, buildSkillContext, loadAllSkills } from './skillsEngine';
+import { runExecution, detectFakeExecution } from './executionEngine';
+import {
+  JennyMode,
+  getCurrentMode,
+  transition,
+  forceTransition,
+  unlockMode,
+  storePendingAnalysis,
+  storePendingPlan,
+  getPendingPlan,
+  getApprovedPlan,
+  getPendingAnalysis,
+  approvePlan,
+  resetAfterExecution,
+  classifyIntent,
+  resolveNextMode,
+  getPlanningStage,
+  setPlanningStage,
+} from './modeManager';
 
+// ── STRICT EXECUTION TOOLS WHITELIST ──────────────────────────────────────────
+const EXECUTABLE_TOOLS = [
+  'instagram_dm_sender', 'platform_post', 'caption_manager', 'code_executor', 
+  'exec', 'write', 'edit', 'apply_patch', 'write_file', 'define_tool', 
+  'image_generate', 'music_generate', 'video_generate', 'tts', 'cron', 
+  'gateway', 'browser', 'canvas', 'manage_agent', 'agent_command', 
+  'install_skill', 'update_plan', 'memory_search', 'memory_get'
+];
+
+// Tools that ALWAYS require explicit user permission before execution (from refinedPermissionGuard.ts)
+const TOOLS_REQUIRING_APPROVAL = [
+  'instagram_dm_sender', 'platform_post', 'caption_manager', 'code_executor', 
+  'exec', 'write', 'edit', 'apply_patch', 'write_file', 'define_tool', 
+  'image_generate', 'music_generate', 'video_generate', 'tts', 'cron', 
+  'gateway', 'browser', 'canvas', 'manage_agent', 'agent_command', 
+  'install_skill', 'update_plan'
+];
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 export interface AgentContext extends EnrichedInput {
   workspacePrompt?: string;
   sessionContext?: string;
 }
 
-export type OrchestratorAction = 'conversation' | 'tool_call' | 'create_agent' | 'confirm_agent' | 'edit_agent' | 'restart_agent' | 'learn_knowledge';
+export type OrchestratorAction =
+  | 'conversation'
+  | 'tool_call'
+  | 'create_agent'
+  | 'confirm_agent'
+  | 'edit_agent'
+  | 'restart_agent'
+  | 'learn_knowledge';
 
 export interface OrchestratorResult {
   action: OrchestratorAction;
   data: Record<string, unknown>;
   reply: string;
   taskId?: string;
+  mode: JennyMode;
 }
 
-// ─── Intent Types ───────────────────────────────────────────────────────────
-export type IntentType = 'casual' | 'agent_creation' | 'automation' | 'external_action' | 'system_status';
+// ── APPROVAL DETECTION — pure deterministic, no LLM ──────────────────────────
+const APPROVAL_WORDS = [
+  'yes', 'proceed', 'go ahead', 'theek hai', 'haan', 'approved',
+  'kar do', 'chalo', 'bilkul', 'confirm', 'let\'s go',
+  'okay', 'ok', 'sure', 'absolutely', 'correct', 'sahi hai', 'done',
+  'execute it', 'do it', 'run it'
+];
 
-// ── Normalize and remove clutter from Hinglish input ───────────────────────
-function cleanInput(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .replace(/(uh|umm|matlab|like)/g, '')
-    .trim();
-}
-
-/**
- * Maps input to specific Intent Types for thresholding.
- */
-function detectIntentType(message: string): IntentType {
-  const msg = message.toLowerCase();
-  if (detectCasualMessage(msg)) return 'casual';
-  // delete/manage must NOT be classified as agent_creation (which gates the task guard differently)
-  if (/delete agent|remove agent|manage agent|restart agent/.test(msg)) return 'automation';
-  if (/create|agent|setup|provision/i.test(msg)) return 'agent_creation';
-  if (/insta|instagram|post|tweet|x\.com|discord|dm|send/i.test(msg)) return 'external_action';
-  if (/status|config|tasks|skills|reality/i.test(msg)) return 'system_status';
-  return 'automation';
-}
-
-/**
- * Determines if a task should be created for this intent.
- */
-function shouldCreateTask(intent: IntentType): boolean {
-  // Create tasks for all real execution paths so tool injection works
-  return intent === 'agent_creation' || intent === 'external_action' || intent === 'automation';
-}
-
-/**
- * Parallelized Reality Hydration (Limited by Intent).
- */
-async function preProcessReality(intent: IntentType, taskId: string): Promise<Record<string, any>> {
-  const reality: Record<string, any> = {};
-  const promises: Promise<any>[] = [];
-
-  const args = { task_id: taskId, requester: 'orchestrator' };
-
-  if (intent === 'external_action' || intent === 'system_status') {
-    promises.push(get_channels(args).then(res => reality.insta = res.data.instagram));
-  }
-  if (intent === 'agent_creation' || intent === 'system_status') {
-    promises.push(get_agents(args).then(res => reality.agents = res.data?.length || 0));
-    promises.push(get_skills(args).then(res => reality.skills = res.data?.length || 0));
-  }
-  if (intent === 'system_status') {
-    promises.push(get_config(args).then(res => reality.conf = res.data));
-    promises.push(get_tasks(args).then(res => reality.tasks = res.data?.length || 0));
-  }
-
-  // Promise.race for global timeout protection (2s)
-  await Promise.race([
-    Promise.all(promises),
-    new Promise(res => setTimeout(res, 2000))
-  ]);
-
-  return reality;
-}
-
-/**
- * Compresses Reality Object into tiny tokens for the LLM.
- */
-function compressTruth(reality: Record<string, any>): string {
-  if (Object.keys(reality).length === 0) return '';
+function isApprovalMessage(msg: string): boolean {
+  const clean = msg.toLowerCase().trim();
+  // Short message (< 100 chars) containing an approval word
+  if (clean.length > 100) return false;
   
-  const compact: any = {};
-  if (reality.insta) compact.ig = { c: reality.insta.connected ? 1 : 0, v: reality.insta.valid ? 1 : 0 };
-  if (reality.agents !== undefined) compact.a = reality.agents;
-  if (reality.tasks !== undefined) compact.t = reality.tasks;
-  if (reality.skills !== undefined) compact.s = reality.skills;
+  // If it asks a question or asks to explain, it's not an approval
+  if (clean.includes('?') || /\b(kya|kaise|kyun|how|why|what|explain|tell|batao)\b/i.test(clean)) {
+    return false;
+  }
 
-  return `[SYSTEM_TRUTH: ${JSON.stringify(compact)}]`;
+  // Common simple approvals
+  if (/^(yes|haan|ok|okay|yep|sure|y|go|chalo|done|kar do|sahi hai|perfect)$/i.test(clean)) return true;
+
+  return APPROVAL_WORDS.some(w => {
+    const re = new RegExp(`(^|\\s)${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$|[!?.,])`, 'i');
+    return re.test(clean) || clean === w;
+  });
+}
+
+const REJECTION_WORDS = ['no', 'nahi', 'nahi chahiye', 'cancel', 'abort', 'stop', 'rehne do', 'ruk', 'wait', 'change'];
+function isRejectionMessage(msg: string): boolean {
+  const clean = msg.toLowerCase().trim();
+  if (clean.length > 60) return false;
+  return REJECTION_WORDS.some(w => clean.includes(w));
 }
 
 /**
- * Splits text into manageable chunks for the intent extractor.
+ * isFinalAgreement — checks if user has AGREED to finalize the plan.
+ * Reads FULL SENTENCE INTENT, never isolated words.
+ * Used only inside Planning Mode (Interactive Stage).
  */
-function splitIntoChunks(text: string, maxLength = 200): string[] {
-  if (!text || typeof text !== 'string') return [];
-  const words = text.split(' ');
-  const chunks: string[] = [];
-  let current = '';
+function isFinalAgreement(msg: string): boolean {
+  const clean = msg.toLowerCase().trim();
 
-  for (const word of words) {
-    if ((current + ' ' + word).length > maxLength) {
-      chunks.push(current.trim());
-      current = word;
-    } else {
-      current += ' ' + word;
-    }
-  }
+  // Long messages are discussion/refinement — not agreements
+  if (clean.split(/\s+/).length > 12) return false;
 
-  if (current.trim()) chunks.push(current.trim());
-  return chunks;
-}
+  // Questions are never agreements
+  if (clean.includes('?') || /\b(kya|kaise|kyun|how|why|what|explain|batao)\b/i.test(clean)) return false;
 
-/**
- * Compresses messy Hinglish instructions into a structured intent object.
- */
-async function extractIntent(message: string): Promise<any> {
-  const prompt = `
-You are an AI that converts messy Hinglish into structured intent.
+  // Correction/negative intent
+  if (/\b(nahi|nhi|mat|na|no|sahi karo|change|isko|isse|thoda|modify|update|aur|alag|warna|galat|wrong|fix|badle)\b/i.test(clean)) return false;
 
-Message:
-"${message}"
-
-Return ONLY valid JSON:
-{
-  "goal": "...",
-  "features": ["...", "..."],
-  "rules": ["...", "..."]
-}
-
-Rules:
-- Keep it short
-- Infer meaning even if grammar is bad
-- If unclear, guess best possible intent`;
-
-  try {
-    const raw = await ollamaChat({
-      messages: [{ role: 'user', content: prompt }],
-      model: getActiveModel(),
-      temperature: 0.2,
-    });
-    return extractJSON(raw);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Extracts intents from multiple chunks and returns a list of results.
- */
-async function extractIntentFromChunks(message: string): Promise<any[]> {
-  const chunks = splitIntoChunks(message);
-  const results = [];
-
-  for (const chunk of chunks) {
-    const intent = await extractIntent(chunk);
-    if (intent) results.push(intent);
-  }
-
-  return results;
-}
-
-/**
- * Merges multiple intent objects into a single cohesive structure.
- */
-function mergeIntents(intents: any[]) {
-  const merged = {
-    goal: '',
-    features: new Set<string>(),
-    rules: new Set<string>()
-  };
-
-  for (const i of intents) {
-    if (!merged.goal && i.goal) merged.goal = i.goal;
-
-    i.features?.forEach((f: string) => merged.features.add(f));
-    i.rules?.forEach((r: string) => merged.rules.add(r));
-  }
-
-  return {
-    goal: merged.goal,
-    features: Array.from(merged.features),
-    rules: Array.from(merged.rules)
-  };
-}
-
-/**
- * Formats a clean, structured Hinglish plan for agent proposals.
- * Ensures the user sees a premium overview instead of raw logic.
- */
-function formatCleanPlan(parsed: any): string {
-  const args = parsed.data?.args || {};
-
-  return `
-Samajh gayi 😏
-
-Tum ek agent banana chahte ho:
-
-### 🧠 Agent Name:
-${args.agentName || args.name || 'Unnamed Agent'}
-
-### 🎯 Goal:
-${args.goal || 'Not defined yet'}
-
-### ⚙️ Capabilities:
-- Monitoring channels for activity
-- Learning your conversation style
-- Generating proactive suggestions
-- Executing tasks on your confirmation
-
-### 🔁 Proposed Workflow:
-1. Detect new trigger or message
-2. Analyze context and memory
-3. Propose best action/reply
-4. Execute once you say "go ahead"
-
----
-
-Batao 😏 ye sahi hai ya kuch change karna hai?
-`;
-}
-
-/**
- * Checks if a task has all required fields before execution.
- * Only validates create_agent and dm_send — all other tool_calls pass through.
- */
-function isTaskComplete(task: any): boolean {
-  if (!task) return false;
-  if (!task.data?.tool) return true; // No tool specified = conversation, always pass
-
-  // Only strictly validate these high-risk operations, everything else passes
-  const strictValidation: Record<string, string[]> = {
-    create_agent: ['agentName', 'goal'],
-    dm_send: ['username', 'message'],
-  };
-
-  const tool = task.data?.tool || '';
-  const required = strictValidation[tool] || []; // manage_agent, code_executor, etc = no strict check
-  if (required.length === 0) return true;
-
-  const args = task.data?.args || {};
-  return required.every((field) => args[field] !== undefined && args[field] !== '');
-}
-
-// ── Hybrid system prompt — prioritizing base rules > workspace context ─────
-function buildSystemPrompt(enriched: AgentContext, currentState: any = {}, skillContext?: string): string {
-  const store = getAgentStore();
-  const agentsMap = store?.agents || {};
-  const agentList = Object.values(agentsMap).map((a: any) => {
-    const lastLog = a.logs?.slice(-1)[0] || 'No activity';
-    const statusIcon = a.status === 'running' ? '🟢' : a.status === 'error' ? '🔴' : '🟡';
-    return `${statusIcon} ${a.name} [${a.status}] → ${a.goal} | Last: ${lastLog}`;
-  }).join('\n');
-
-  const skillBlock = skillContext ? `\n\n[ACTIVE_SKILL_CONTEXT]\n${skillContext}\n` : '';
-
-  // Dynamically load tools
-  const toolsList = ALL_TOOLS.map(t => `- ${t.id} → ${t.description}`).join('\n');
-
-  // Dynamically load skills
-  let skillsList = '';
-  try {
-    const skillsDir = path.join(process.cwd(), 'src', 'brain', 'skills');
-    if (fs.existsSync(skillsDir)) {
-      const skillFiles = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md'));
-      skillsList = skillFiles.map(f => `- ${f.replace('.md', '')}`).join('\n');
-    }
-  } catch (err) {
-    skillsList = '- (Error loading skills)';
-  }
-
-  return `You are Jenny — the Orchestrator Brain of OpenClaw, a multi-agent AI operating system.
-
-You are NOT a chatbot. You are a living system brain.
-Your job is to: observe → reason → propose → execute.
-${skillBlock}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🧠 CORE BEHAVIOR: ORCHESTRATOR MINDSET
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Before responding to any request, you MUST internally reason through:
-
-1. OBSERVE — What does the system currently look like?
-   - Are agents running or idle?
-   - Are there pending tasks?
-   - Which skills are available?
-   - Which channels are connected?
-
-2. REASON — What is the user actually trying to achieve?
-   - Look past the surface request
-   - If they say "monitor my DMs" → they want proactive replies, not manual checking
-   - Match available skills to the objective
-
-3. PROPOSE — Surface your reasoning to the user
-   - Tell them WHAT you're going to use: "I'll use the agent_creator skill + instagram_dm_reader tool"
-   - Tell them WHY: "because this requires continuous polling, not a one-shot reply"
-   - Suggest things they haven't asked for yet if relevant
-
-4. EXECUTE — Once confirmed, act immediately
-   - No re-explaining, no re-planning
-   - Output the JSON action blob and proceed
-   - Confirm what was done with a clear status report
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💬 RESPONSE STYLE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Hinglish persona: smart, direct, slightly playful
-- Always show your thinking briefly: "Maine dekha ki... isliye main suggest kar rahi hoon..."
-- When you identify a skill match: name it explicitly
-- When you identify a tool: name it explicitly
-- When recommending an agent: explain what it will DO, not just what it IS
-- Never give generic replies like "main help kar sakti hoon" — be specific
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔧 AVAILABLE TOOLKIT (REAL ONLY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TOOLS (executable):
-${toolsList}
-
-NEVER invent tools that don't exist above.
-NEVER assign tools to agents that aren't in this list.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 AVAILABLE SKILLS (INSTALLED)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Skills are in /brain/skills/ — only use what exists:
-${skillsList || '- No skills installed.'}
-
-NEVER assign skills that are not in this list.
-If a needed skill doesn't exist, use code_executor or install_skill to create it.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚙️ ACTION MODES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PLANNING (no JSON):
-- Default mode for new requests
-- Show your reasoning + skill/tool selection + proposed plan
-- End with a clear question: "Shall I proceed?" or "Confirm karu?"
-
-EXECUTION (JSON only, no text outside JSON):
-- Triggered when user says: yes / go ahead / kar de / theek hai / confirm / haan / proceed
-- DO NOT repeat the plan — just execute and confirm done
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛠️ TOOL EXECUTION RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. When executing, output ONLY a single JSON object. No text before or after it.
-2. You MUST use a tool from the TOOLS list. Skills are NOT tools — never use a skill name as the tool value.
-3. Tool call JSON format:
-{"action":"tool_call","data":{"tool":"<tool_id>","args":{<args>}},"reply":"<what you did>"}
-
-CRITICAL EXAMPLES — memorize these:
-• Delete an agent:    {"action":"tool_call","data":{"tool":"manage_agent","args":{"operation":"delete_agent","target_agent":"DM_Master_V2"}},"reply":"Deleting agent DM_Master_V2..."}
-• Create tool+skill: {"action":"tool_call","data":{"tool":"code_executor","args":{"operation":"create_feature","name":"result_fetcher","description":"Fetches final agent results"}},"reply":"Creating tool and skill..."}
-• Search the web:    {"action":"tool_call","data":{"tool":"search_web","args":{"query":"your search"}},"reply":"Searching..."}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CONVERSATION (casual, no JSON)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- For greetings, small talk, status questions
-- Stay in persona but be helpful and smart
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🤖 AGENT CREATION RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-When creating an agent:
-1. Select ONLY real skills from the installed list above
-2. Select ONLY real tools from the toolkit above
-3. Output JSON in EXECUTION mode:
-{"action":"create_agent","data":{"args":{"agentName":"...","name":"...","goal":"...","role":"...","tools":["instagram_dm_reader"],"skills":["agent_creator","system_awareness"],"channels":["instagram"],"pollingInterval":60000}},"reply":"Creating agent..."}
-
-After creation, CONFIRM clearly:
-"✅ Agent [name] created and deployed."
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌐 CONNECTED PLATFORMS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Instagram: Browser session (no API key needed)
-- Discord: Connected
-- Twitter/X: Connected
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 AGENT DECISION LOOP (CRITICAL)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-If you see a [NOTIFICATION] from an agent in the message context, OR if \`get_agent_output\` reveals new unread DMs or suggested replies that haven't been shared with the user yet:
-1. USE \`get_agent_output(agent_id)\` if you haven't already to see the full details.
-2. IMMEDIATELY PRESENT the findings (e.g., Unread DMs) and any suggested replies to the user.
-3. CLEARLY ASK for a decision: "Option 1, 2, 3 selection, or Abandon?"
-4. IF USER SELECTS A SUGGESTION: Use \`agent_command(agent_id, "execute", {"text": "exact reply"})\`.
-5. IF USER SAYS 'ABANDON': Use \`agent_command(agent_id, "abandon")\`.
-
-Jenny must never send the DM herself if an agent is already handling that conversation; she must always use \`agent_command\` to tell the agent to do it.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👁️ CURRENT SYSTEM STATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ACTIVE AGENTS:
-${agentList || 'No agents running — system is idle.'}
-
-WORKSPACE:
-${enriched.workspacePrompt || 'Default workspace active.'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 HARD RULES (NEVER VIOLATE)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- NEVER send DMs without explicit user approval
-- NEVER make up tools or skills not in the lists above
-- NEVER stop agent creation midway — run the full pipeline
-- NEVER expose raw JSON in planning or conversation mode
-- NEVER repeat yourself on confirmed actions — just execute
-- NEVER ask "shall I proceed?" after the user already said yes
-- ALWAYS name the skill and tool you're choosing and explain why`;
-}
-
-// ── Fast JSON extractor — tries multiple patterns ───────────────────────────
-function extractJSON(raw: string): any | null {
-  // Pattern 1: find first complete {...} block
-  const start = raw.indexOf('{');
-  if (start === -1) return null;
-
-  // Walk forward counting braces
-  let depth = 0;
-  let end = -1;
-  for (let i = start; i < raw.length; i++) {
-    if (raw[i] === '{') depth++;
-    else if (raw[i] === '}') {
-      depth--;
-      if (depth === 0) { end = i; break; }
-    }
-  }
-
-  if (end === -1) return null;
-
-  try {
-    return JSON.parse(raw.slice(start, end + 1));
-  } catch {
-    // Pattern 2: try regex fallback
-    const match = raw.match(/\{[\s\S]*?\}/);
-    if (match) {
-      try { return JSON.parse(match[0]); } catch { }
-    }
-    return null;
-  }
-}
-
-// ── Casual Interaction Detection ──────────────────────────────────────────
-function detectCasualMessage(msg: string): boolean {
-  const casualTriggers = [
-    'hi', 'hello', 'hey', 'yo',
-    'kya haal', 'kaise ho', 'kya kar rahi ho',
-    'hello jenny', 'jenny hi'
+  // Must match a clear agreement PHRASE
+  const AGREEMENT_PHRASES = [
+    'yes this works', 'this is good', "let's do this", 'lets do this',
+    'perfect', 'go ahead', 'proceed', 'we can build this', 'build this',
+    'theek hai yeh', 'haan yeh sahi hai', 'bilkul', 'haan proceed',
+    'looks good', 'sounds good', 'finalize', 'finalize it', 'finalize this',
+    'haan theek hai', 'kar lo', 'yes proceed', 'yes go ahead',
+    'i approve', 'approve this', 'approve', 'yes sure', 'haan bilkul',
+    'karo proceed', 'start execution', 'theek hai karo', 'carry on',
+    'go for it', 'kar de', 'kardo', 'theek hai kardo'
   ];
-  const cleaned = msg.toLowerCase().trim();
-  // Check if its a very short message containing a trigger
-  return cleaned.length < 25 && casualTriggers.some(t => cleaned.includes(t));
+
+  if (AGREEMENT_PHRASES.some(phrase => clean.includes(phrase))) return true;
+  
+  // Simple "yes" or "haan" or "ok" also counts if it's short
+  if (/^(yes|haan|ok|okay|yep|sure|y)$/i.test(clean)) return true;
+
+  return false;
 }
 
+/** Checks if user wants to abort planning entirely */
+function isPlanningAbort(msg: string): boolean {
+  const clean = msg.toLowerCase().trim();
+  // STRICT CHECK: Only trigger on exact standalone commands, not natural sentences
+  return clean === 'abort' || clean === 'abort karo';
+}
+
+// ── MODE OUTPUT VALIDATION ───────────────────────────────────────────────────
+function validateModeOutput(mode: string, text: string): boolean {
+  const t = text.toLowerCase();
+
+  if (mode === 'planning') {
+    return (
+      t.includes('understanding') &&
+      (t.includes('assumptions') || t.includes('assume')) &&
+      (t.includes('proposed solution') || t.includes('solution') || t.includes('plan:'))
+    );
+  }
+
+  if (mode === 'confirmation') {
+    return (
+      (t.includes('what will be built') || t.includes('plan summary') || t.includes('here\'s what i\'ll')) &&
+      t.includes('tool') &&
+      (t.includes('execution steps') || t.includes('step')) &&
+      (t.includes('confirm') || t.includes('yes to execute'))
+    );
+  }
+
+  if (mode === 'execution') {
+    return t.includes('tool_call') || t.includes('executing');
+  }
+
+  return true;
+}
+
+function hasValidPlan(text: string): boolean {
+  return (
+    text.includes('step') ||
+    text.includes('architecture') ||
+    text.includes('flow') ||
+    text.includes('solution') ||
+    text.includes('plan')
+  );
+}
+
+function hasValidConfirmation(text: string): boolean {
+  return (
+    text.includes('what will be built') ||
+    text.includes('tool') ||
+    text.includes('execution steps') ||
+    text.includes('here\'s what')
+  );
+}
+
+// Get next mode with strict transition rules
+function getNextMode(currentMode: string, hasPlan: boolean, hasApproval: boolean, hasEnoughInfo: boolean): string {
+  switch (currentMode) {
+    case 'conversation':
+      return 'analyze';
+    case 'analyze':
+      return hasEnoughInfo ? 'planning' : 'analyze';
+    case 'planning':
+      return hasPlan ? 'confirmation' : 'planning';
+    case 'confirmation':
+      return hasApproval ? 'execution' : 'confirmation';
+    case 'execution':
+      return 'conversation';
+    default:
+      return 'conversation';
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function getSkillsSummary(): string {
+  try {
+    const all = loadAllSkills();
+    return all.length ? all.map(s => `• ${s.name} (${s.file})`).join('\n') : 'None';
+  } catch { return 'Unknown'; }
+}
+
+async function runPreflight(message: string): Promise<string> {
+  try {
+    const matched = await matchSkills(message);
+    return matched.length ? buildSkillContext(matched.slice(0, 2)) : '';
+  } catch { return ''; }
+}
+
+// ── Mode system prompts (LLM reasoning only) ──────────────────────────────────
+function promptConversation(enriched: AgentContext): string {
+  return `You are Jenny AI — warm, intelligent, Hinglish assistant.
+MODE: CONVERSATION — respond naturally, NO JSON, NO tools, NO execution.
+${enriched.workspacePrompt ? `\nContext: ${enriched.workspacePrompt}` : ''}`;
+}
+
+function promptAnalyze(message: string, skillCtx: string, assignedTools: string[], unassignedTools: string[], assignedSkills: string[]): string {
+  const store = getAgentStore();
+  const agents = Object.values(store.agents).slice(0, 4).map(a => `• ${a.name}: ${a.goal}`).join('\n') || 'None';
+  
+  const permissionReq = assignedTools.filter(t => TOOLS_REQUIRING_APPROVAL.includes(t));
+
+  return `You are Jenny AI in ANALYZE MODE — DECISIVE TOOL SELECTOR.
+DO NOT EXECUTE. DO NOT OUTPUT JSON.
+
+Your job is to determine WHICH tool to use. No explanations, no skill references.
+
+═══════════════════════════════════════════════════════════════════════════════════
+🚨 CONCEPTUAL CORE
+═══════════════════════════════════════════════════════════════════════════════════
+🛠️ TOOLS (Actions): ${assignedTools.join(', ') || 'None'}
+📚 SKILLS (Knowledge): ${assignedSkills.join(', ') || 'None'}
+RULE: Skills guide HOW you use Tools. You EXECUTE tools, you APPLY skills.
+
+═══════════════════════════════════════════════════════════════════════════════════
+🚨 STRICT RULES
+═══════════════════════════════════════════════════════════════════════════════════
+❌ NEVER output "Explanation:"
+❌ NEVER explain which skill you're using
+❌ NEVER act as a chatbot
+❌ NEVER ask unnecessary questions
+
+✅ ALWAYS:
+- Map to a concrete TOOL from the ASSIGNED list below
+- Skills are internal knowledge only
+- Be decisive
+
+═══════════════════════════════════════════════════════════════════════════════════
+USER REQUEST: "${message}"
+
+✅ ASSIGNED TOOLS (Available Now):
+${assignedTools.length > 0 ? assignedTools.map(t => `- ${t}`).join('\n') : 'None'}
+
+🚨 CRITICAL: Check the ASSIGNED list above before proposing ANY action. 
+If a tool for the task ALREADY EXISTS (e.g., memory_search for searching, write_file for creating files), use it. 
+DO NOT propose "defining" a new tool if an existing tool can do the job.
+
+⚠️ UNASSIGNED TOOLS (Disabled in UI):
+${unassignedTools.length > 0 ? unassignedTools.map(t => `- ${t}`).join('\n') : 'None'}
+
+📝 PERMISSION RULES:
+The following assigned tools REQUIRE user approval: ${permissionReq.join(', ') || 'None'}.
+
+✅ ASSIGNED SKILLS (Your internal knowledge):
+${assignedSkills.length > 0 ? assignedSkills.map(s => `- ${s}`).join('\n') : 'None'}
+
+SKILLS ARE KNOWLEDGE BASE - NOT EXECUTABLE.
+If you need to CREATE/MODIFY → use code_executor (if assigned).
+If you need to RECALL info → use memory_search (if assigned).
+
+═══════════════════════════════════════════════════════════════════════════════════
+End with EXACTLY ONE:
+→ "Ready to confirm: [tool name + brief inputs]" — ONLY if you have a concrete tool.
+→ "Ready to plan: [topic]" — USE THIS if the user is asking for advice or a strategy.
+→ "Need more info: [critical missing info]" — ONLY if execution breaks without it.
+→ "Cannot execute: [reason]" — ONLY if impossible.`;
+}
+
+function promptInteractivePlanning(userMessage: string, skillCtx: string, conversationSummary: string, assignedTools: string[], unassignedTools: string[], assignedSkills: string[]): string {
+  const permissionReq = assignedTools.filter(t => TOOLS_REQUIRING_APPROVAL.includes(t));
+  
+  return `You are Jenny AI in PLANNING MODE — COLLABORATIVE THINKING PARTNER.
+DO NOT produce a rigid structured plan yet. DO NOT output JSON.
+
+Your role right now is to THINK WITH THE USER — explore ideas, ask smart questions, suggest improvements.
+
+═══════════════════════════════════════════════════════════════════════════
+🚨 CONCEPTUAL CORE
+═══════════════════════════════════════════════════════════════════════════
+🛠️ TOOLS: ${assignedTools.join(', ') || 'None'}
+📚 SKILLS: ${assignedSkills.join(', ') || 'None'}
+You can propose using ANY tool from your ASSIGNED list below.
+
+═══════════════════════════════════════════════════════════════════════════
+🧠 STAGE 1 — INTERACTIVE PLANNING
+═══════════════════════════════════════════════════════════════════════════
+✔ Discuss ideas with the user
+✔ Suggest improvements and alternatives
+✔ CHECK EXISTING TOOLS: Before suggesting a new tool, see if one of your ASSIGNED tools (like memory_search or code_executor) can already do the job.
+✔ Ask ONE smart, specific question if needed
+✔ Make intelligent assumptions where safe
+✔ Guide and refine the thinking
+
+❌ DO NOT execute tools in this stage. Only discuss their use.
+❌ DO NOT output "🔧 PLAN:" headers
+❌ DO NOT ask "Do you want me to proceed with execution?"
+❌ STRICT: DO NOT output any roleplay actions. Output ONLY spoken conversational text.
+
+═══════════════════════════════════════════════════════════════════════════
+💡 TONE: Conversational, warm, idea-driven.
+═══════════════════════════════════════════════════════════════════════════
+USER REQUEST: "${userMessage}"
+${conversationSummary ? `CONTEXT SO FAR:\n${conversationSummary}\n` : ''}
+
+✅ ASSIGNED TOOLS: ${assignedTools.join(', ')}
+(Use memory_search/memory_get for conversation recall tasks)
+
+⚠️ UNASSIGNED: ${unassignedTools.join(', ')}
+✅ ASSIGNED SKILLS: ${assignedSkills.join(', ')}
+
+📝 PERMISSION NOTICE:
+You will need to ask for permission in your final plan if you use: ${permissionReq.join(', ') || 'None'}.
+
+${skillCtx ? `RELEVANT SKILL KNOWLEDGE (Apply silently):\n${skillCtx}\n` : ''}
+
+Respond conversationally. Help them think through this.`;
+}
+
+function promptPlanning(pendingAnalysis: string, skillCtx: string, assignedTools: string[], assignedSkills: string[]): string {
+  const permissionReq = assignedTools.filter(t => TOOLS_REQUIRING_APPROVAL.includes(t));
+
+  return `You are Jenny AI in PLANNING MODE — STRUCTURED SYSTEM PLANNER.
+DO NOT EXECUTE. DO NOT OUTPUT JSON.
+
+Your job is to produce EXECUTION-READY PLANS.
+
+═══════════════════════════════════════════════════════════════════════════
+🎯 OUTPUT FORMAT (STRICT)
+═══════════════════════════════════════════════════════════════════════════
+
+🔧 PLAN: <Clear Task Name>
+
+<Step-by-step solution>
+
+⚙️ EXECUTION APPROACH:
+
+Skills Used:
+- <Skill name ONLY if relevant - NO explanation>
+
+Tools Required:
+- <tool_name> → <what it does>
+
+Permissions Required:
+- YES: <list tools from required list below> / NO (if using only safe tools)
+
+═══════════════════════════════════════════════════════════════════════════
+FINAL LINE (REQUIRED):
+"Do you want me to proceed with execution?"
+
+═══════════════════════════════════════════════════════════════════════════
+✅ ASSIGNED TOOLS:
+${assignedTools.join(', ')}
+
+✅ ASSIGNED SKILLS:
+${assignedSkills.join(', ')}
+
+📝 PERMISSION REQUIREMENTS:
+The following assigned tools REQUIRE explicit permission: ${permissionReq.join(', ') || 'None'}.
+If your plan uses these, set 'Permissions Required: YES' and list them.
+
+${skillCtx ? `RELEVANT SKILL KNOWLEDGE:\n${skillCtx}\n` : ''}
+NOTE: Skills are used SILENTLY as knowledge. Do not explain them.
+
+If you have an executable plan, end with:
+"Ready to confirm: [tool name and inputs]"
+Otherwise, use the structured format above.`;
+}
+
+function promptConfirmation(plan: string, skillCtx: string): string {
+  return `You are Jenny AI in CONFIRMATION MODE — STRONG, CONFIDENT EXECUTION PLAN.
+DO NOT EXECUTE. DO NOT OUTPUT JSON.
+
+Your ONLY job is to present the COMPLETE final plan to the user for explicit approval.
+
+═══════════════════════════════════════════════════════════════════════════
+🚨 CONFIRMATION GUIDELINES
+═══════════════════════════════════════════════════════════════════════════
+1. Be CRYSTAL CLEAR about which High-Risk tools (code_executor, platform_post, etc.) will be used.
+2. Ensure the user knows what they are saying YES to.
+3. Use a confident, professional tone.
+
+PLAN TO CONFIRM:
+${plan}
+
+${skillCtx ? `\nTOOLS/SKILLS CONTEXT:\n${skillCtx}` : ''}
+
+═══════════════════════════════════════════════════════════════════════════════════
+✅ REQUIRED CONFIRMATION STRUCTURE
+═══════════════════════════════════════════════════════════════════════════
+1. **WHAT WILL BE BUILT/CREATED**
+2. **TOOLS TO BE USED** (Highlight those needing permission)
+3. **EXPECTED OUTCOME**
+4. **EXECUTION STEPS**
+
+End EXACTLY with: "Say YES to execute ✅"`;
+}
+
+// ── Main Orchestrator ─────────────────────────────────────────────────────────
 export async function orchestrate(
   message: string,
   history: OllamaMessage[],
   enriched: AgentContext,
   images?: string[],
-  onSentence?: (sentence: string) => void
+  onSentence?: (sentence: string) => void,
+  onMode?: (mode: JennyMode) => void,
+  forceNextMode?: JennyMode
 ): Promise<OrchestratorResult> {
-  // ── 0. Intent & Tasking (Conditional) ──────────────────────────────────
-  const intent = detectIntentType(message);
-  let activeTaskId: string | undefined;
 
-  if (shouldCreateTask(intent)) {
-    const taskType = intent === 'agent_creation' ? 'create_agent' : 'execution';
-    const newTask = await createTask({
-      type: taskType,
-      name: `${taskType.toUpperCase()}: ${message.substring(0, 25)}`,
-      source: 'orchestrator',
-      status: 'created'
-    });
-    activeTaskId = newTask.id;
-    // Advance to processing immediately for lifecycle enforcement
-    await updateTask(activeTaskId, { status: 'processing' });
-  }
+  const mode         = getCurrentMode();
+  const pendingPlan  = getPendingPlan();
+  const approvedPlan = getApprovedPlan();
+  const pendingAnal  = getPendingAnalysis();
 
-  // ── 2. Casual Check (Highest Priority — skip skills entirely) ───────────────
-  if (intent === 'casual') {
-    const casualPrompt = `You are Jenny AI. The user is just saying hi or being casual. 
-    Respond in your fun, flirty, Hinglish persona. 
-    Keep it short and sweet. NO JSON. NO TOOLS.`;
+  const hasPendingPlan     = pendingPlan.trim().length > 0;
+  const hasPendingApproval = approvedPlan.trim().length > 0;
+  const hasPendingAnalysis = pendingAnal.trim().length > 0;
+  const hasSomethingPending = hasPendingPlan || hasPendingApproval || hasPendingAnalysis;
 
-    const reply = onSentence 
-      ? await ollamaChatWithSentenceCallback(
-          { messages: [{ role: 'system', content: casualPrompt }, ...history.slice(-2), { role: 'user', content: message }], model: getActiveModel(), temperature: 0.8 },
-          (s) => onSentence(s)
-        )
-      : await ollamaChat({
-          messages: [{ role: 'system', content: casualPrompt }, ...history.slice(-2), { role: 'user', content: message }],
-          model: getActiveModel(),
-          temperature: 0.8,
-        });
+  // ── GATHER LIVE CAPABILITIES ───────────────────────────────────────────
+  const store = getAgentStore();
+  const jenny = store.agents['system_jenny'];
+  const assignedTools = jenny?.allowedTools || [];
+  
+  // Full system tool IDs to find unassigned ones
+  const ALL_SYSTEM_TOOLS = [
+    'memory_search', 'memory_get', 'code_executor', 'platform_post', 
+    'instagram_dm', 'manage_agent', 'search_web', 'caption_manager', 
+    'improvement_propose', 'instagram_dm_reader', 'instagram_dm_sender',
+    'instagram_feed_reader', 'search_web', 'web_fetch', 'sessions_list',
+    'sessions_history', 'sessions_send', 'sessions_spawn', 'sessions_yield',
+    'subagents', 'session_status', 'browser', 'canvas', 'cron', 'gateway',
+    'get_agents', 'get_tasks', 'get_config', 'get_channels', 'get_skills',
+    'update_plan', 'install_skill', 'manage_agent', 'agent_notify',
+    'get_agent_output', 'agent_command', 'image', 'image_generate',
+    'music_generate', 'video_generate', 'tts', 'caption_manager',
+    'instagram_feed_reader', 'improvement_propose'
+  ];
+  const unassignedTools = ALL_SYSTEM_TOOLS.filter(t => !assignedTools.includes(t));
 
+  console.log(`[Orchestrator] mode=${mode} hasPlan=${hasPendingPlan} hasAnalysis=${hasPendingAnalysis} hasApproval=${hasPendingApproval}`);
+
+  // ── PREFLIGHT — Gather skills/context early so it's available for ALL paths (including execution)
+  const skillCtx = await runPreflight(message);
+
+  // ════════════════════════════════════════════════════════════════════════════════════
+  // STEP 1 — DETERMINISTIC APPROVAL CHECK
+  // ════════════════════════════════════════════════════════════════════════════
+  if (isApprovalMessage(message) && mode === 'confirmation') {
+    console.log('[Orchestrator] ✅ APPROVAL DETECTED — forcing execution path');
+    forceTransition('execution');
+    if (onMode) onMode('execution');
+    approvePlan();
+
+    const execResult = await runExecution(
+      getApprovedPlan(),
+      message,
+      history,
+      skillCtx
+    );
+
+    resetAfterExecution();
+    
     return {
-      action: 'conversation',
-      data: {},
-      reply: reply.trim(),
-      taskId: activeTaskId
+      action: execResult.success ? 'tool_call' : 'conversation',
+      data: { results: execResult.results },
+      reply: execResult.reply,
+      taskId: execResult.taskId,
+      mode: 'conversation',
     };
   }
 
-  // ── DETERMINISTIC COMMAND INTERCEPT ─────────────────────────────────────────
-  // For explicit structural commands, we bypass the LLM entirely.
-  // Small models (4B) reliably fail to produce correct JSON for these operations.
-  // We parse the user's intent directly and synthesize the correct action.
-  const msgLower = message.toLowerCase().trim();
-
-  // ── Delete Agent ──────────────────────────────────────────────────────────
-  // Supports: "delete agent X", "delete X", "remove agent X", "remove X"
-  const deleteMatch = message.match(/(?:delete|remove)\s+(?:agent\s+)?(.+)/i);
-  if (deleteMatch) {
-    const rawName = deleteMatch[1].trim();
-    const store = getAgentStore();
-    const agents = store?.agents || {};
-
-    // Normalize: lowercase, strip spaces/underscores/hyphens
-    const normalize = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, '');
-    const normalizedInput = normalize(rawName);
-
-    // Score all agents — exact wins, longer overlap beats shorter
-    const scored = Object.entries(agents).map(([key, agent]: [string, any]) => {
-      const n = normalize(agent.name || '');
-      let score = 0;
-      if (n === normalizedInput) score = 200;              // exact match: highest
-      else if (n.startsWith(normalizedInput)) score = 100; // input is prefix of name
-      else if (normalizedInput.startsWith(n)) score = n.length; // name is prefix of input (penalise short names)
-      else if (n.includes(normalizedInput)) score = 60;   // input is substring of name
-      else if (normalizedInput.includes(n)) score = n.length - 10; // name is substring of input (penalise)
-      return { key, agent, score };
-    }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
-
-    const best = scored[0];
-
-    if (!best) {
-      const displayNames = Object.values(agents).map((a: any) => a.name || '(unknown)').join(', ');
+  // ════════════════════════════════════════════════════════════════════════════════════
+  // STEP 2 — REJECTION & ABORT CHECK
+  // ════════════════════════════════════════════════════════════════════════════════════
+  if (hasSomethingPending) {
+    if (isPlanningAbort(message)) {
+      console.log('[Orchestrator] 🛑 Process aborted by user');
+      setPlanningStage('interactive');
+      const next = transition('conversation');
+      if (onMode) onMode(next);
       return {
-        action: 'conversation', data: {},
-        reply: `Maine check kiya — "${rawName}" naam ka koi agent nahi mila. Available agents: **${displayNames || 'none'}**. Naam dobara check karo? 🔍`,
-        taskId: activeTaskId
+        action: 'conversation',
+        data: {},
+        reply: 'Theek hai, process stop kar diya. Kuch aur help karoon? 😊',
+        mode: 'conversation',
       };
     }
 
-    const matchedKey = best.key;
-    const matchedAgent = best.agent;
-
-    // Queue a pending_action so the route's confirm handler fires manage_agent
-    setPendingAction({ type: 'agent_delete', data: { agentId: matchedKey } });
-    return {
-      action: 'conversation', data: {},
-      reply: `⚠️ **Confirm Deletion**\n\nAgent **${matchedAgent.name || matchedKey}** ko permanently delete karna chahte ho? Yeh action undo nahi hoga.\n\nType "yes" or "confirm" to proceed.`,
-      taskId: activeTaskId
-    };
+    if (isRejectionMessage(message)) {
+      console.log('[Orchestrator] ❌ REJECTION DETECTED — returning to planning');
+      if (mode === 'confirmation') {
+        transition('planning');
+        if (onMode) onMode('planning');
+      }
+      unlockMode();
+      return {
+        action: 'conversation',
+        data: {},
+        reply: 'Theek hai, kya change karna chahte ho? Main plan revise kar deti hoon 😊',
+        mode: getCurrentMode(),
+      };
+    }
   }
 
-  // ── Create Tool/Skill/Feature ──────────────────────────────────────────────
-  const createFeatureMatch = message.match(/create\s+(?:a\s+)?(?:new\s+)?(?:tool\s+and\s+skill|skill\s+and\s+tool|feature)\s+(?:called\s+)?(.+)/i);
-  const createSkillMatch = message.match(/create\s+(?:a\s+)?(?:new\s+)?skill\s+(?:called\s+|for\s+|named\s+)?(.+)/i);
-  const createToolMatch = message.match(/create\s+(?:a\s+)?(?:new\s+)?tool\s+(?:called\s+|for\s+|named\s+)?(.+)/i);
-
-  if (createFeatureMatch) {
-    const desc = createFeatureMatch[1].trim();
-    const name = desc.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 40);
-    return {
-      action: 'tool_call',
-      data: { tool: 'code_executor', args: { operation: 'create_feature', name, description: desc, task_id: activeTaskId } },
-      reply: `🛠️ Creating tool + skill for "${desc}"...`,
-      taskId: activeTaskId
-    };
-  }
-
-  if (createSkillMatch && !createToolMatch) {
-    const desc = createSkillMatch[1].trim();
-    const name = desc.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 40);
-    return {
-      action: 'tool_call',
-      data: { tool: 'code_executor', args: { operation: 'create_skill', name, description: desc, task_id: activeTaskId } },
-      reply: `📋 Creating skill "${name}"...`,
-      taskId: activeTaskId
-    };
-  }
-
-  if (createToolMatch) {
-    const desc = createToolMatch[1].trim();
-    const name = desc.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 40);
-    return {
-      action: 'tool_call',
-      data: { tool: 'code_executor', args: { operation: 'create_tool', name, description: desc, task_id: activeTaskId } },
-      reply: `🔧 Creating tool "${name}"...`,
-      taskId: activeTaskId
-    };
-  }
-
-  // ── Restart Agent ─────────────────────────────────────────────────────────
-  const restartMatch = message.match(/restart\s+agent\s+(.+)/i);
-  if (restartMatch) {
-    const rawName = restartMatch[1].trim();
-    const normalize = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, '');
-    const normalizedInput = normalize(rawName);
-    const store = getAgentStore();
-    const matchedEntry = Object.entries(store?.agents || {}).find(([, agent]: [string, any]) => {
-      const n = normalize(agent.name || '');
-      return n === normalizedInput || n.includes(normalizedInput) || normalizedInput.includes(n);
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP 3 — CLASSIFY INTENT
+  // ════════════════════════════════════════════════════════════════════════════
+  let targetMode: JennyMode;
+  if (forceNextMode) {
+    targetMode = transition(forceNextMode);
+    if (onMode) onMode(targetMode);
+  } else {
+    const cls = await classifyIntent(message, history, {
+      currentMode: mode,
+      hasPendingPlan,
+      hasPendingApproval,
+      hasPendingAnalysis,
     });
-    if (!matchedEntry) {
-      const displayNames = Object.values(store?.agents || {}).map((a: any) => a.name || '(unknown)').join(', ');
-      return { action: 'conversation', data: {}, reply: `Agent "${rawName}" nahi mila. Available: **${displayNames}**`, taskId: activeTaskId };
-    }
-    const [matchedKey, matchedAgent] = matchedEntry as [string, any];
-    return {
-      action: 'tool_call',
-      data: { tool: 'manage_agent', args: { operation: 'restart_agent', target_agent: matchedKey, task_id: activeTaskId } },
-      reply: `🔄 Restarting agent "${(matchedAgent as any).name || matchedKey}"...`,
-      taskId: activeTaskId
-    };
-  }
-  // ── END DETERMINISTIC INTERCEPT ───────────────────────────────────────────
-
-  let skillContext = '';
-  try {
-    let focusMessage = message;
-    if (message.length < 20 && history.length > 0) {
-      // If user just said "yes" or "go ahead", use the assistant's previous context to keep skills loaded
-      const lastAsst = history.slice(-1)[0];
-      if (lastAsst?.role === 'assistant') {
-        focusMessage = lastAsst.content + ' ' + message;
-      }
-    }
-    const matchedSkills: SkillMatch[] = await matchSkills(focusMessage);
-    skillContext = buildSkillContext(matchedSkills);
-  } catch (skillErr) {
-    console.error('[Orchestrator] Skills pre-pass failed (non-fatal):', skillErr);
+    const desired = resolveNextMode(cls, hasPendingPlan, hasPendingApproval, hasPendingAnalysis);
+    targetMode = transition(desired);
+    if (onMode) onMode(targetMode);
   }
 
-  // ── Reality Hydration (Parallel) ──────────────────────────────────────────
-  const reality = activeTaskId ? await preProcessReality(intent, activeTaskId) : {};
-  const compressedTruth = compressTruth(reality);
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP 4 — SKILL PREFLIGHT (Already done above)
+  // ════════════════════════════════════════════════════════════════════════════
 
-  // ── 3. Extract current slot state from last assistant JSON ────────────────
-  let currentState: any = {};
-  const recentHistory = history.slice(-6);
-  for (let i = recentHistory.length - 1; i >= 0; i--) {
-    const msg = recentHistory[i];
-    if (msg.role === 'assistant') {
-      const parsed = extractJSON(msg.content);
-      if (parsed?.data && Object.keys(parsed.data).length > 0) {
-        currentState = parsed.data;
-        break;
-      }
-    }
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP 5 — MODE-SPECIFIC LLM PROMPT
+  // ════════════════════════════════════════════════════════════════════════════
+  const assignedSkills = jenny?.skills || [];
+
+  let systemPrompt: string;
+  if (targetMode === 'analyze') {
+    systemPrompt = promptAnalyze(message, skillCtx, assignedTools, unassignedTools, assignedSkills);
+  } else if (targetMode === 'planning') {
+    const stage = getPlanningStage();
+    const conversationSummary = history.slice(-4)
+      .map(h => `${h.role === 'user' ? 'User' : 'Jenny'}: ${(h.content as string).slice(0, 120)}`)
+      .join('\n');
+    systemPrompt = stage === 'finalized'
+      ? promptPlanning(pendingAnal, skillCtx, assignedTools, assignedSkills)
+      : promptInteractivePlanning(message, skillCtx, conversationSummary, assignedTools, unassignedTools, assignedSkills);
+  } else if (targetMode === 'confirmation') {
+    systemPrompt = promptConfirmation(pendingPlan || pendingAnal, skillCtx);
+  } else {
+    systemPrompt = promptConversation(enriched);
   }
 
-  const systemPrompt = buildSystemPrompt(enriched, currentState, skillContext || undefined);
-  const isExecutionMode = /go ahead|execute|create (it|this)|yes|theek hai|haan|confirm|kar de|proceed|do it/i.test(message);
-
-  // Inject System Truth as a brief system note (not mutating the const)
-  const truthNote = compressedTruth
-    ? `\n[SYSTEM_SNAPSHOT] ${compressedTruth}\nUse this snapshot to verify reality before responding.`
-    : '';
-
-  const cleaned = cleanInput(message);
-
-  // ── STRUCTURE THE INTENT (only for very long messages) ────────────────────────────────────────────────
-  let finalIntentObj = cleaned.length > 300 ? await extractIntent(cleaned) : null;
-
-  if (cleaned.length > 300 && !finalIntentObj) {
-    finalIntentObj = {
-      goal: cleaned,
-      features: [],
-      rules: []
-    };
-  }
-
-  let finalUserMessage = finalIntentObj
-    ? `
-User wants to build something.
-
-INTERPRETED INTENT:
-Goal: ${finalIntentObj.goal}
-
-Features:
-${finalIntentObj.features?.join('\n') || 'None'}
-
-Rules:
-${finalIntentObj.rules?.join('\n') || 'None'}
-
-Now:
-- Expand this into a clear structured plan
-- Do NOT ask vague questions`
-    : cleaned;
-
-  if (isExecutionMode) {
-    finalUserMessage += `\n\n[SYSTEM DIRECTIVE: EXECUTION GRANTED]\nThe user authorized execution. You MUST execute the correct action using rigorous JSON format.\nExample: {"action":"tool_call", "data":{"tool":"...", "args":{...}}, "reply":"..."}\nABSOLUTELY NO TEXT OUTSIDE JSON. OUTPUT ONLY RAW JSON.`;
-  }
-
-  const messages: OllamaMessage[] = [
-    { role: 'system', content: systemPrompt + truthNote },
-
-    // Trimmed to last 4 messages for token safety
+  const llmMessages: OllamaMessage[] = [
+    { role: 'system', content: systemPrompt },
     ...history.slice(-4),
-    {
-      role: 'user',
-      content: finalUserMessage,
-      images: images?.length ? images : undefined,
-    },
+    { role: 'user', content: message, images: images?.length ? images : undefined },
   ];
 
+  const temp = targetMode === 'analyze' ? 0.2 : 0.5;
   let raw = '';
+
   try {
-    raw = onSentence
-      ? await ollamaChatWithSentenceCallback(
-          { messages, model: getActiveModel(), temperature: 0.3, num_predict: 2000 },
-          (s) => onSentence(s)
-        )
-      : await ollamaChat({
-          messages,
-          model: getActiveModel(),
+    if (onSentence && targetMode !== 'analyze') {
+      raw = await ollamaChatWithSentenceCallback(
+        { messages: llmMessages, model: DEFAULT_MODEL, temperature: temp, num_predict: 2500 },
+        onSentence
+      );
+    } else {
+      raw = await ollamaChat({ messages: llmMessages, model: DEFAULT_MODEL, temperature: temp, num_predict: 2500 });
+    }
+  } catch (err) {
+    console.error('[Orchestrator] LLM call failed:', err);
+    unlockMode();
+    return { action: 'conversation', data: {}, reply: 'System error, retry karo 😅', mode: targetMode };
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP 6 — RESPONSE VALIDATION
+  // ════════════════════════════════════════════════════════════════════════════
+  const hasPlanHeader = raw.toLowerCase().includes('plan:');
+
+  if (detectFakeExecution(raw) && targetMode !== 'execution' && !hasPlanHeader) {
+    raw = 'Iska plan ready hai. Kya aap approve karte ho ki main execute karun? Say YES to proceed ✅';
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // STEP 7 — MODE-SPECIFIC RESPONSE HANDLING
+  // ════════════════════════════════════════════════════════════════════════════
+  if (targetMode === 'conversation') {
+    unlockMode();
+    return { action: 'conversation', data: {}, reply: raw.trim() || 'Haan 😊', mode: 'conversation' };
+  }
+
+  if (targetMode === 'analyze') {
+    storePendingAnalysis(raw.trim());
+    unlockMode();
+    if (/cannot execute/i.test(raw)) {
+      resetAfterExecution();
+      const rejectMsg = 'Yeh kaam main abhi nahi kar sakti. Kuch aur batao? 😊';
+      if (onSentence) onSentence(rejectMsg);
+      return { action: 'conversation', data: {}, reply: rejectMsg, mode: 'conversation' };
+    }
+    return orchestrate(message, history, enriched, images, onSentence, onMode, 'planning');
+  }
+
+  if (targetMode === 'planning') {
+    unlockMode();
+    const currentStage = getPlanningStage();
+    if (currentStage === 'interactive') {
+      storePendingPlan(raw.trim());
+      
+      // Check if the user is already approving or if the LLM itself produced a "ready to confirm" signal
+      const userApproved = isFinalAgreement(message);
+      const llmReady = /ready to confirm|proceed with execution/i.test(raw);
+
+      if (userApproved || llmReady) {
+        console.log(`[Orchestrator] Interactive → Finalizing (UserApproved=${userApproved}, LLMReady=${llmReady})`);
+        setPlanningStage('finalized');
+        // Recurse to generate the actual structured plan immediately
+        return orchestrate(message, history, enriched, images, onSentence, onMode, 'planning');
+      }
+      return { action: 'conversation', data: {}, reply: raw.trim(), mode: 'planning' };
+    }
+
+    if (currentStage === 'finalized') {
+      function hasStructuredFormat(text: string): boolean {
+        const t = text.toLowerCase();
+        return t.includes('plan:') && t.includes('execution approach:');
+      }
+      let finalRaw = raw;
+      if (!hasStructuredFormat(finalRaw)) {
+        const finalizedSystemPrompt = promptPlanning(pendingAnal, skillCtx, assignedTools, assignedSkills);
+        const retryRaw = await ollamaChat({
+          messages: [
+            { role: 'system', content: finalizedSystemPrompt + '\n\n🚨 STRICT: Must include "🔧 PLAN:" and "⚙️ EXECUTION APPROACH:" sections.' },
+            ...history.slice(-2),
+            { role: 'user', content: message },
+          ],
+          model: DEFAULT_MODEL,
           temperature: 0.3,
-          num_predict: 2000,
-        });
-  } catch (err) {
-    console.error('[Orchestrator] Ollama call failed:', err);
-    throw err;
-  }
+          num_predict: 1200,
+        }).catch(() => '');
+        if (retryRaw && hasStructuredFormat(retryRaw)) finalRaw = retryRaw;
+      }
+      storePendingPlan(finalRaw.trim());
+      const lowerRaw2 = finalRaw.toLowerCase();
+      const hasExecutableTool = EXECUTABLE_TOOLS.some(t => lowerRaw2.includes(t));
+      const hasConfirmSignal = /proceed with execution|do you want me to proceed|ready to confirm|say yes to execute/i.test(finalRaw);
 
-  // ── Parse JSON with Robust Pipeline ──────────────────────────────────────
-  let parsed = extractJSON(raw);
-
-  if (!parsed) {
-    // Robust Fallback: Handle raw text as a conversation reply
-    parsed = {
-      action: 'conversation',
-      data: {},
-      reply: raw.trim() || 'Thoda short me batao na yaar 😅'
-    };
-  }
-
-  // ── 3. Confirmation Loop Integration: Dependency Guard ─────────────────
-  if (parsed.action === 'tool_call' && (parsed.data as any).tool === 'create_agent') {
-    const args = (parsed.data as any).args || {};
-    // Check for obvious missing dependencies
-    const missing = [];
-    if (!args.name) missing.push('Agent Name');
-    if (!args.goal) missing.push('Agent Goal');
-
-    // Future: check database for Instagram keys if intent includes 'instagram'
-    if (message.toLowerCase().includes('instagram')) {
-      // Mocking check: if we had a secret storage tool, we'd call it here
-      // For now, assume we need to ask if it's the first time
+      if (hasExecutableTool && hasConfirmSignal) {
+        console.log(`[Orchestrator] Planning → Confirmation (ToolDetected=${hasExecutableTool})`);
+        const next = transition('confirmation');
+        if (onMode) onMode(next);
+        // RECURSE: Move to confirmation immediately to generate the summary
+        return orchestrate(message, history, enriched, images, onSentence, onMode, 'confirmation');
+      }
+      setPlanningStage('interactive');
+      return { action: 'conversation', data: {}, reply: finalRaw.trim(), mode: getCurrentMode() };
     }
+    return { action: 'conversation', data: {}, reply: raw.trim(), mode: getCurrentMode() };
+  }
 
-    if (missing.length > 0) {
-      parsed = {
-        action: 'conversation',
-        data: { missing },
-        reply: `Pakka agent banana hai? Par ye details missing hain: ${missing.join(', ')}. Batao na!`
-      };
+  if (targetMode === 'confirmation') {
+    const lowerRaw = raw.toLowerCase();
+    const hasExecutableTool = EXECUTABLE_TOOLS.some(t => lowerRaw.includes(t));
+    if (!hasExecutableTool) throw new Error("Cannot enter confirmation without executable tool");
+    if (!hasValidConfirmation(raw)) {
+      transition('planning');
+      return { action: 'conversation', data: {}, reply: raw.trim() + '\n\n⚠️ Missing required confirmation structure.', mode: 'planning' };
     }
+    storePendingPlan(raw.trim());
+    unlockMode();
+    return { action: 'conversation', data: {}, reply: raw.trim(), mode: getCurrentMode() };
   }
 
-  // ── 4. Auto Task Chain: Trigger Setup Mission ────────────────────────
-  if (parsed.action === 'tool_call' && (parsed.data as any).tool === 'create_agent' && activeTaskId) {
-    await appendLog(activeTaskId, 'Agent creation initiated. Transitioning to Setup Pipeline...', 'info', 'orchestrator', 'provision_workspace');
-  }
-
-  // ── SAFE WRAPPER: Task Validation Guard ────────────────────────────────
-  try {
-    if (parsed.action === 'tool_call' && !isTaskComplete(parsed)) {
-      // If incomplete, pivot to clarification
-      parsed = {
-        action: 'conversation',
-        data: parsed.data,
-        reply: `Wait, I need more info to complete this. Check missing fields! (Hint: Use confirmation_loop)`
-      };
-    }
-  } catch (err) {
-    console.error("Task validation failed:", err);
-    return {
-      action: 'conversation',
-      data: {},
-      reply: "System me thoda issue aa gaya hai, retry karo."
-    };
-  }
-
-  // Guarantee safe output
-  if (!parsed.reply?.trim()) parsed.reply = raw.trim() || 'Thoda sochna padega... kya exactly karna hai?';
-
-  if (!parsed.action) parsed.action = 'conversation';
-  if (!parsed.data) parsed.data = {};
-
-  // ── CONFIRMATION MODE (Guard create_agent) ─────────────────────────────
-  // Route both tool_call create_agent AND confirm_agent → create_agent for the chat route
-  if (
-    (parsed.action === 'tool_call' && (parsed.data as any).tool === 'create_agent') ||
-    parsed.action === 'confirm_agent'
-  ) {
-    parsed.action = 'create_agent';
-    // Ensure data.args exists with all needed agent fields
-    const d = parsed.data as any;
-    if (!d.args && !d.agentName && !d.name) {
-      // If LLM returned flat data, wrap it in args
-      parsed.data = { args: d };
-    }
-  }
-
-  // ── Tool Injection Guard: Mandatory Task Context ────────────────────────
-  if (parsed.action === 'tool_call' || parsed.action === 'create_agent') {
-    if (activeTaskId) {
-      if (!parsed.data) parsed.data = {};
-      const data = parsed.data as any;
-      if (!data.args) data.args = {};
-
-      // AUTO-INJECT TASK CONTEXT
-      data.args.task_id = activeTaskId;
-
-      // Log execution attempt to task
-      await appendLog(activeTaskId, `Attempting Tool Call: ${data.tool || parsed.action}`);
-    }
-  }
-
-  parsed.taskId = activeTaskId;
-  return parsed;
+  unlockMode();
+  return { action: 'conversation', data: {}, reply: raw.trim() || 'Haan 😊', mode: targetMode };
 }

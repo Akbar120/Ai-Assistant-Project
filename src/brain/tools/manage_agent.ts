@@ -7,10 +7,11 @@ export interface ManageAgentResult {
 }
 
 export async function execute_manage_agent(args: {
-  operation: 'assign_tool' | 'unassign_tool' | 'assign_skill' | 'unassign_skill' | 'restart_agent' | 'delete_agent';
+  operation: 'assign_tool' | 'unassign_tool' | 'assign_skill' | 'unassign_skill' | 'restart_agent' | 'delete_agent' | 'update_config';
   target_agent: string;
   tool_id?: string;
   skill_id?: string;
+  config_updates?: Record<string, any>;
   requester?: string;
 }): Promise<ManageAgentResult> {
   const { operation, target_agent, tool_id, skill_id, requester } = args;
@@ -79,12 +80,40 @@ export async function execute_manage_agent(args: {
         saveAgentStore(store);
         return { success: true, reply: `✅ Unassigned tool '${tool_id}' from agent '${agent.name || resolvedKey}'.` };
 
-      case 'assign_skill':
+      case 'assign_skill': {
         if (!skill_id) return { success: false, reply: 'skill_id is required.', error: 'MISSING_ARG' };
+        
+        // 1. Add skill to agent's list
         agent.skills = Array.from(new Set([...(agent.skills || []), skill_id]));
-        logAgentAction(resolvedKey, `Skill "${skill_id}" assigned by ${byWhom}.`, 'SYSTEM', 'Skill Assign');
+        
+        // 2. Automatically assign tools mentioned in the skill definition
+        try {
+          const fsMod = require('fs');
+          const pathMod = require('path');
+          const skillName = skill_id.toLowerCase().replace(/\.md$/, '');
+          const skillPath = pathMod.join(process.cwd(), 'src', 'brain', 'skills', `${skillName}.md`);
+          
+          if (fsMod.existsSync(skillPath)) {
+            const content = fsMod.readFileSync(skillPath, 'utf8');
+            // Extract anything inside backticks in the Tool Access section
+            const toolAccessSection = content.match(/## 🔐 Tool Access([\s\S]*?)(?=\n##|$)/i);
+            if (toolAccessSection) {
+              const mentionedTools = toolAccessSection[1].match(/`([^`()]+)(?:\([^`]*\))?`/g);
+              if (mentionedTools) {
+                const toolIds = mentionedTools.map((m: string) => m.replace(/`/g, '').split('(')[0].trim());
+                agent.allowedTools = Array.from(new Set([...(agent.allowedTools || []), ...toolIds]));
+                agent.tools = Array.from(new Set([...(agent.tools || []), ...toolIds]));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`[ManageAgent] Failed to auto-assign tools for skill ${skill_id}:`, e);
+        }
+
+        logAgentAction(resolvedKey, `Skill "${skill_id}" assigned by ${byWhom}. Tools auto-authorized.`, 'SYSTEM', 'Skill Assign');
         saveAgentStore(store);
-        return { success: true, reply: `✅ Assigned skill '${skill_id}' to agent '${agent.name || resolvedKey}'.` };
+        return { success: true, reply: `✅ Assigned skill '${skill_id}' to agent '${agent.name || resolvedKey}'. Tools mentioned in the skill are now authorized.` };
+      }
 
       case 'unassign_skill':
         if (!skill_id) return { success: false, reply: 'skill_id is required.', error: 'MISSING_ARG' };
@@ -111,6 +140,41 @@ export async function execute_manage_agent(args: {
           fsMod.rmSync(agentPath, { recursive: true, force: true });
         }
         return { success: true, reply: `✅ Agent '${agentDisplayName}' has been permanently deleted from memory and disk.` };
+      }
+
+      case 'update_config': {
+        if (!args.config_updates || typeof args.config_updates !== 'object') {
+          return { success: false, reply: 'config_updates object is required for this operation.', error: 'MISSING_ARG' };
+        }
+        let reply = `✅ Updated config for '${agent.name || resolvedKey}':`;
+        for (const [key, val] of Object.entries(args.config_updates)) {
+          (agent as any)[key] = val;
+          reply += `\n- ${key} = ${val}`;
+          
+          // Specially update HEARTBEAT.md if pollingInterval changed
+          if (key === 'pollingInterval') {
+            try {
+              const fsMod = require('fs');
+              const pathMod = require('path');
+              const agentFolder = agent.folder || resolvedKey;
+              const heartbeatPath = pathMod.join(process.cwd(), 'workspace', 'agents', agentFolder, 'HEARTBEAT.md');
+              let content = `Run interval: ${val}ms`;
+              if (fsMod.existsSync(heartbeatPath)) {
+                content = fsMod.readFileSync(heartbeatPath, 'utf8');
+                content = content.replace(/pollingInterval:?\s*\d+/i, `pollingInterval: ${val}`);
+                if (!content.includes('pollingInterval')) {
+                   content += `\n\npollingInterval: ${val}`;
+                }
+              }
+              fsMod.writeFileSync(heartbeatPath, content, 'utf8');
+            } catch (e) {
+              console.error("[ManageAgent] Failed to update HEARTBEAT.md", e);
+            }
+          }
+        }
+        logAgentAction(resolvedKey, `Configuration updated by ${byWhom}. Keys: ${Object.keys(args.config_updates).join(', ')}`, 'SYSTEM', 'Config Update');
+        saveAgentStore(store);
+        return { success: true, reply };
       }
 
       default:

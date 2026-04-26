@@ -1,6 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { ollamaChat, getActiveModel } from '@/lib/ollama';
+import * as fs from 'fs';
+import * as path from 'path';
+import { ollamaChat } from '../../lib/ollama';
+import { getActiveModel } from '../../lib/ollama-server';
 
 const SKILLS_DIR = path.join(process.cwd(), 'src', 'brain', 'skills');
 const TOOLS_DIR = path.join(process.cwd(), 'src', 'brain', 'tools');
@@ -27,12 +28,19 @@ export interface CodeExecutorResult {
  * traversal attacks (../ attempts are blocked).
  */
 export async function execute_code_executor(args: {
-  operation: 'write_file' | 'create_skill' | 'create_tool' | 'read_file' | 'list_files';
+  operation: 'write_file' | 'create_skill' | 'create_tool' | 'read_file' | 'list_files' | 'edit_file' | 'rename_file' | 'rename_skill';
   path?: string;
   name?: string;
+  newName?: string;    // Used for rename operations
   content?: string;
+  target?: string;      
+  replacement?: string; 
   description?: string;
-  goal?: string; // used by LLM generation
+  goal?: string; 
+  old_path?: string;   // NEW: For rename compatibility
+  new_path?: string;   // NEW: For rename compatibility
+  old_name?: string;   // NEW: For skill rename
+  new_name?: string;   // NEW: For skill rename
 }): Promise<CodeExecutorResult> {
   const { operation } = args;
 
@@ -60,6 +68,74 @@ export async function execute_code_executor(args: {
       if (!fs.existsSync(filePath)) return { success: false, reply: `File not found: ${filePath}`, error: 'NOT_FOUND' };
       const content = fs.readFileSync(filePath, 'utf-8');
       return { success: true, reply: content };
+    }
+
+    // ── EDIT FILE ─────────────────────────────────────────────────────────────
+    if (operation === 'edit_file') {
+      const filePath = safePath(args.path!);
+      if (!fs.existsSync(filePath)) return { success: false, reply: `File not found: ${filePath}`, error: 'NOT_FOUND' };
+      
+      let content = fs.readFileSync(filePath, 'utf-8');
+      const target = args.target || '';
+      const replacement = args.replacement || args.content || '';
+      
+      if (!target && !args.content) {
+         return { success: false, reply: "Edit failed: Must provide 'target' and 'replacement' (or 'content').", error: 'MISSING_ARGS' };
+      }
+
+      if (target && !content.includes(target)) {
+         return { success: false, reply: `Edit failed: Target text not found in ${args.path}.`, error: 'TARGET_NOT_FOUND' };
+      }
+
+      if (target) {
+        content = content.replace(target, replacement);
+      } else {
+        // If no target, assume full overwrite (fallback to write_file behavior)
+        content = replacement;
+      }
+
+      fs.writeFileSync(filePath, content, 'utf-8');
+      return { success: true, reply: `Successfully edited ${args.path}.`, created: [filePath] };
+    }
+
+    // ── RENAME FILE ───────────────────────────────────────────────────────────
+    if (operation === 'rename_file') {
+      const oldPath = safePath(args.path || args.old_path || args.name!);
+      const newPath = safePath(args.newName || args.new_name || args.new_path || args.name!);
+      
+      if (!fs.existsSync(oldPath)) return { success: false, reply: `Source file not found: ${args.path || args.old_path}`, error: 'NOT_FOUND' };
+      
+      fs.renameSync(oldPath, newPath);
+      return { success: true, reply: `Renamed file to ${path.basename(newPath)}.` };
+    }
+
+    // ── RENAME SKILL ──────────────────────────────────────────────────────────
+    if (operation === 'rename_skill') {
+      const oldName = (args.old_name || args.name || args.path!).toLowerCase().replace(/\.md$/, '');
+      const newName = (args.new_name || args.newName || args.content!).toLowerCase().replace(/\s+/g, '_').replace(/\.md$/, '');
+      
+      const oldPath = path.join(SKILLS_DIR, `${oldName}.md`);
+      const newPath = path.join(SKILLS_DIR, `${newName}.md`);
+      
+      if (!fs.existsSync(oldPath)) return { success: false, reply: `Skill not found: ${oldName}`, error: 'NOT_FOUND' };
+      
+      // 1. Rename the file
+      fs.renameSync(oldPath, newPath);
+
+      // 2. Update the internal name heading in the file
+      try {
+        let content = fs.readFileSync(newPath, 'utf-8');
+        const oldHeading = content.match(/^# Skill:\s*(.*)/m);
+        if (oldHeading) {
+          const formattedNewName = newName.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          content = content.replace(oldHeading[0], `# Skill: ${formattedNewName}`);
+          fs.writeFileSync(newPath, content, 'utf-8');
+        }
+      } catch (e) {
+        console.warn(`[Code Executor] Failed to update internal skill name:`, e);
+      }
+
+      return { success: true, reply: `Successfully renamed skill "${oldName}" to "${newName}".` };
     }
 
     // ── WRITE FILE ────────────────────────────────────────────────────────────

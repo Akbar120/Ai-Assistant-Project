@@ -1,0 +1,108 @@
+{
+  "notifications": [
+    {
+      "id": "notif_1776996052685_pj7u",
+      "agentId": "system_jenny",
+      "agentName": "Jenny",
+      "text": "🔍 MONITORING REQUEST\n\nJenny wants to execute: update_plan\n\nTool: update_plan\nArguments:\n- plan_update: [Complex Data]\n- task_id: task_zx4ltqq",
+      "timestamp": "2026-04-24T02:00:52.685Z",
+      "type": "approval_needed",
+      "read": true,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "abandoned",
+      "replies": []
+    },
+    {
+      "id": "notif_1776996516454_wiie",
+      "agentId": "system_jenny",
+      "agentName": "Jenny",
+      "text": "🔍 MONITORING REQUEST\n\nJenny wants to execute: Self Improvement\n\nTool: Self Improvement\nArguments:\n- analysis_focus: Core Reasoning Loop Enhancement\n- current_state_assessment: The current reasoning flow lacks a mandatory, structured con...\n- proposed_improvement_plan: Implement Structured Context Logging (SCL) as a mandatory pr...\n- optimization_goal: To make the response highly grounded, aware, and demonstrabl...\n- priority: 1\n- task_id: task_rcwr8ov",
+      "timestamp": "2026-04-24T02:08:36.454Z",
+      "type": "approval_needed",
+      "read": true,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "abandoned",
+      "replies": []
+    },
+    {
+      "id": "notif_1776997197037_rr08",
+      "agentId": "system_jenny",
+      "agentName": "Jenny",
+      "text": "🔍 MONITORING REQUEST\n\nJenny wants to execute: code_executor\n\nOperation: create_feature\nTarget: skill_merger\nDescription: Handles the dynamic integration and merging of newly created or externally sourced skills into the core OpenClaw skill registry, ensuring all new capabilities are available to all agents and the orchestrator.",
+      "timestamp": "2026-04-24T02:19:57.037Z",
+      "type": "approval_needed",
+      "read": true,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "abandoned",
+      "replies": []
+    },
+    {
+      "id": "notif_1776999904432_wo3k",
+      "agentId": "system_jenny",
+      "agentName": "Jenny",
+      "text": "🔍 MONITORING REQUEST\n\nJenny wants to execute: code_executor\n\nOperation: create_feature\nTarget: context_retriever_skill\nDescription: Automatically triggers memory_search and synthesizes past conversation context into the current reasoning cycle, ensuring continuity and reference for the Orchestrator Brain (Jenny).",
+      "timestamp": "2026-04-24T03:05:04.432Z",
+      "type": "approval_needed",
+      "read": true,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "abandoned",
+      "replies": []
+    },
+    {
+      "id": "notif_1776999993220_v4r2",
+      "agentId": "system_jenny",
+      "agentName": "Jenny",
+      "text": "🔍 MONITORING REQUEST\n\nJenny wants to execute: code_executor\n\nOperation: create_feature\nTarget: context_retriever_skill\nDescription: Automatically triggers memory_search and synthesizes past conversation context into the current reasoning cycle, ensuring continuity and reference for the Orchestrator Brain (Jenny).",
+      "timestamp": "2026-04-24T03:06:33.220Z",
+      "type": "approval_needed",
+      "read": true,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "abandoned",
+      "replies": []
+    },
+    {
+      "id": "notif_1777000352321_b61t",
+      "agentId": "system_jenny",
+      "agentName": "Jenny",
+      "text": "🔍 MONITORING REQUEST\n\nJenny wants to execute: code_executor\n\nOperation: create_feature\nTarget: context_retriever_skill\nDescription: Automatically triggers memory_search and synthesizes past conversation context into the current reasoning cycle, ensuring continuity and reference for the Orchestrator Brain (Jenny).",
+      "timestamp": "2026-04-24T03:12:32.321Z",
+      "type": "approval_needed",
+      "read": true,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "abandoned",
+      "replies": []
+    },
+    {
+      "id": "notif_1777169547583_teax",
+      "agentId": "agent_ngu6k6y",
+      "agentName": "DM_Monitor_Pro",
+      "text": "👤 From: @RAHIL🔱\n\n💬 Messages:\n  \"3 new messages\"\n\n💡 Suggested Replies:\n  A) Sounds good!\n  B) Got it, thanks!\n  C) Let's talk soon!",
+      "timestamp": "2026-04-26T02:12:27.583Z",
+      "type": "approval_needed",
+      "read": true,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "abandoned",
+      "replies": []
+    },
+    {
+      "id": "notif_1777191169878_37cu",
+      "agentId": "agent_ngu6k6y",
+      "agentName": "DM_Monitor_Pro",
+      "text": "👤 From: @sohail\n\n💬 Messages:\n  \"sohail sent an attachment.\"\n\n💡 Suggested Replies:\n  A) Sounds good!\n  B) Got it, thanks!\n  C) Let's talk soon!",
+      "timestamp": "2026-04-26T08:12:49.878Z",
+      "type": "approval_needed",
+      "read": false,
+      "requiresApproval": true,
+      "announced": false,
+      "status": "pending",
+      "replies": []
+    }
+  ]
+}

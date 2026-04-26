@@ -27,6 +27,18 @@
 **Triggers:** "follow up", "kya hua", "update on", "check on agent", "how is agent doing"
 **Tools Used:** `get_agents`, `get_tasks`
 
+### `notification_manager`
+**Purpose:** Routes, presents, and resolves agent notifications. Ensures no findings are lost.
+**Triggers:** "notifications", "pending approvals", "agent report", "DM agent found", "what did agent find", "check notifications"
+**Tools Used:** `get_agent_output`, `agent_command`
+**Key Behavior:**
+1. Use `get_agent_output` to read the agent's latest findings.
+2. Summarize findings in clean Hinglish in chat.
+3. Direct user to `/notifications` for approval actions.
+4. If user explicitly picks an option in chat → use `agent_command(execute, { text: selectedReply })`.
+5. If user says abandon → use `agent_command(abandon)`.
+6. NEVER push raw agent logs to chat. Summarize only.
+
 ### `confirmation_loop`
 **Purpose:** Gates execution behind user approval. Required before all external actions.
 **Triggers:** "confirm", "before proceeding", "check before", "final review"

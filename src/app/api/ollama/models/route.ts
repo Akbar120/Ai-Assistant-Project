@@ -6,7 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActiveModel, setActiveModel, DEFAULT_MODEL } from '@/lib/ollama';
+import { DEFAULT_MODEL } from '@/lib/ollama';
+import { getActiveModel, setActiveModel } from '@/lib/ollama-server';
 
 export const runtime = 'nodejs';
 

@@ -1,4 +1,5 @@
 import { useRef, useCallback } from 'react';
+import { useChatStore } from '@/components/chat/ChatProvider';
 
 /**
  * Pro-Level Zero-Gap Streaming TTS Hook
@@ -10,6 +11,7 @@ import { useRef, useCallback } from 'react';
  * - Overlap logic simplified to be reliable (no NaN duration issues).
  */
 export function useStreamingTTS() {
+  const { setIsSpeaking } = useChatStore();
   const ttsQueue = useRef<string[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const nextAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -18,6 +20,7 @@ export function useStreamingTTS() {
 
   // Signal Electron/Python that TTS state changed
   const signalTTSState = (playing: boolean) => {
+    setIsSpeaking(playing); // Update React UI immediately
     try {
       const ipc = typeof window !== 'undefined' && (window as any).require
         ? (window as any).require('electron').ipcRenderer

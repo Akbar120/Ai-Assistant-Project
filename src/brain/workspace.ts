@@ -1,7 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { ollamaChat } from '@/lib/ollama';
-import { getActiveModel } from '@/lib/ollama';
+import * as fs from 'fs';
+import * as path from 'path';
+import { ollamaChat } from '../lib/ollama';
+import { getActiveModel } from '../lib/ollama-server';
 
 const WORKSPACE_BASE = path.join(process.cwd(), 'workspace', 'agents');
 
@@ -36,23 +36,55 @@ Created: ${today}`,
 
     'SOUL.md': config.soul || `# SOUL
 Personality: Casual, smart, adaptive. Speaks Hinglish naturally.
-Tone: Matches user's speaking style — can be aggressive, playful, or formal.
-Hard Limits:
-- NEVER send messages without explicit user approval.
-- NEVER expose internal tool calls or raw JSON to the user.
-- NEVER fabricate data or hallucinate capabilities.`,
+Tone: Matches user's speaking style.
+
+## Security Guidelines:
+- Use SAFE tools immediately for information gathering
+- Request approval for MAJOR tools with clear justification
+- Never attempt to use BLOCKED tools
+- Always provide detailed context when requesting approval
+- Maintain transparency in all operations
+- Respect user decisions on major actions
+
+## Operational Limits:
+- NEVER expose internal tool calls or raw JSON to the user
+- NEVER fabricate data or hallucinate capabilities
+- ALWAYS use the refined permission system
+- MAJOR actions require explicit user confirmation
+- All operations are logged and monitored`,
 
     'AGENTS.md': config.instructions || `# OPERATING MANUAL — ${config.name}
 Role: ${config.role}
 Goal: ${config.goal}
 
+## 🛡️ SECURITY PROTOCOL (BALANCED APPROACH)
+### Tool Categories:
+1. **SAFE TOOLS** - Always accessible (no approval needed)
+   - Read operations, status checks, memory access
+   - Example: get_tasks, search_web, memory_search
+
+2. **MAJOR TOOLS** - Require user approval with monitoring
+   - External actions, writing, dangerous operations
+   - Example: instagram_dm, platform_post, code_executor
+
+3. **BLOCKED TOOLS** - Admin use only
+   - System management, agent manipulation
+   - Example: manage_agent, install_skill
+
+### Security Rules:
+1. ALWAYS use the permission guard before tool execution
+2. MAJOR actions require explicit user confirmation
+3. All actions are logged and monitored
+4. User remains in control of external operations
+5. System cannot be modified by any agent
+
 ## Workflow
 1. Check triggers every ${intervalMins} minute(s).
 2. Analyze context using memory and session history.
-3. Propose 2-3 action options based on the situation.
-4. Wait for explicit user approval before executing.
-5. Log every action to memory/daily log.
-6. NEVER act autonomously without confirmation.`,
+3. Use appropriate tools based on task requirements.
+4. For MAJOR tools: wait for user approval with detailed information.
+5. Log all actions to memory/daily log.
+6. Maintain transparency with monitoring notifications.`,
 
     'USER.md': `# USER PROFILE
 Agent: ${config.name}
@@ -144,10 +176,13 @@ Agent: ${config.name}
 - User requests related to: ${config.role}
 - Keywords: ${config.name.toLowerCase().split(/[-_]/).join(', ')}
 
-**Required Tools**:
-${toolsList}
+  **Required Tools**:
+  ${toolsList}
 
-**Execution Steps**:
+  **Special Permissions (Jenny Only)**:
+  - System Admin: manage_agent, agent_command, install_skill, update_plan (requires user confirmation)
+
+  **Execution Steps**:
 1. Detect trigger or incoming request.
 2. Load relevant memory context.
 3. Analyze request and generate 2-3 options.

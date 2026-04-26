@@ -8,10 +8,10 @@
  * Skills live in: src/brain/skills/*.md
  */
 
-import fs from 'fs';
-import path from 'path';
-import { ollamaChat } from '@/lib/ollama';
-import { getActiveModel } from '@/lib/ollama';
+import * as fs from 'fs';
+import * as path from 'path';
+import { ollamaChat } from '../lib/ollama';
+import { getActiveModel } from '../lib/ollama-server';
 
 const SKILLS_DIR = path.join(process.cwd(), 'src', 'brain', 'skills');
 

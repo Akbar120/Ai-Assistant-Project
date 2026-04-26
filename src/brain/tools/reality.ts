@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 import { getAgentStore } from '../agentManager';
 import { getAllTasks, exists as taskExists, appendLog, updateTask } from '../taskService';
 
@@ -12,10 +12,11 @@ function getCacheKey(requester: string, tool: string) {
 }
 
 // ─── Standardized Response Wrapper ──────────────────────────────────────────
-function wrapResponse<T>(source: string, data: T, cached = false): any {
+function wrapResponse<T>(source: string, data: T, cached = false, reply?: string): any {
   return {
     success: true,
     data,
+    ...(reply ? { reply } : {}),
     meta: {
       source,
       timestamp: Date.now(),
@@ -28,6 +29,7 @@ function wrapError(source: string, error: string, suggestion?: string): any {
   return {
     success: false,
     error,
+    reply: `❌ **Error in ${source}:** ${error}`,
     suggestion,
     meta: {
       source,
@@ -90,7 +92,9 @@ export async function get_config(args: { task_id?: string; requester?: string; s
 
     if (task_id) await appendLog(task_id, `[Reality] Fetched system config`);
     cache.set(cacheKey, { data: config, timestamp: Date.now() });
-    return wrapResponse(source, config);
+    
+    const reply = `⚙️ **System Configuration:**\n- Version: ${config.version}\n- Env: ${config.env}`;
+    return wrapResponse(source, config, false, reply);
   } catch (err: any) {
     if (task_id) await updateTask(task_id, { status: 'failed' });
     return wrapError(source, err.message);
@@ -141,7 +145,9 @@ export async function get_channels(args: { task_id?: string; requester?: string 
 
     if (task_id) await appendLog(task_id, `[Reality] Validated platform channels`);
     cache.set(cacheKey, { data: platforms, timestamp: Date.now() });
-    return wrapResponse(source, platforms);
+    
+    const reply = `📡 **Connected Channels:**\n- Instagram: ${platforms.instagram.valid ? '🟢 Connected' : '🔴 Disconnected'}\n- Twitter: ${platforms.twitter.valid ? '🟢 Connected' : '🔴 Disconnected'}\n- Discord: ${platforms.discord.valid ? '🟢 Connected' : '🔴 Disconnected'}`;
+    return wrapResponse(source, platforms, false, reply);
   } catch (err: any) {
     return wrapError(source, err.message);
   }
@@ -163,7 +169,12 @@ export async function get_agents(args: { task_id?: string; requester?: string })
       name: a.name,
       status: a.status
     }));
-    return wrapResponse(source, agents);
+    
+    const reply = agents.length > 0 
+      ? `✅ **Active Agents:**\n\n${agents.map(a => `- **${a.name}** (${a.status})`).join('\n')}`
+      : `No active agents found.`;
+      
+    return wrapResponse(source, agents, false, reply);
   } catch (err: any) {
     return wrapError(source, err.message);
   }
@@ -185,7 +196,12 @@ export async function get_tasks(args: { task_id?: string; requester?: string }) 
       status: t.status,
       name: t.name
     }));
-    return wrapResponse(source, summary);
+    
+    const reply = summary.length > 0
+      ? `✅ **Recent Tasks:**\n\n${summary.map(t => `- [${t.status.toUpperCase()}] ${t.name}`).join('\n')}`
+      : `No recent tasks found.`;
+      
+    return wrapResponse(source, summary, false, reply);
   } catch (err: any) {
     return wrapError(source, err.message);
   }
@@ -203,7 +219,10 @@ export async function get_skills(args: { task_id?: string; requester?: string })
   try {
     const skillsDir = path.resolve(process.cwd(), 'src/brain/skills');
     const files = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md'));
-    return wrapResponse(source, files.map(f => f.replace('.md', '')));
+    const skills = files.map(f => f.replace('.md', ''));
+    
+    const reply = `✅ **Available Skills:**\n\n${skills.map(s => `- ${s}`).join('\n')}`;
+    return wrapResponse(source, skills, false, reply);
   } catch (err: any) {
     return wrapError(source, err.message);
   }
@@ -213,26 +232,124 @@ export async function get_skills(args: { task_id?: string; requester?: string })
  * Reads an agent's recent output/memory to help Jenny understand its state.
  */
 export async function get_agent_output(args: { task_id?: string; requester?: string; agent_id: string }) {
-  const { task_id, requester = 'orchestrator', agent_id } = args;
+  let { task_id, requester = 'orchestrator', agent_id } = args;
   const source = 'get_agent_output';
 
   if (!(await checkPermissions(requester, source))) return wrapError(source, 'Unauthorized');
 
   try {
     const store = getAgentStore();
-    const agent = store.agents[agent_id];
-    if (!agent) throw new Error(`Agent not found: ${agent_id}`);
+    
+    // Try exact ID match first
+    let agent = store.agents[agent_id];
+    
+    // Fallback: Try fuzzy name match if exact ID fails
+    if (!agent) {
+      const normalizedSearch = agent_id.toLowerCase().replace(/_/g, ' ');
+      const matchedKey = Object.keys(store.agents).find(key => {
+        const dbName = store.agents[key].name.toLowerCase();
+        const dbKey = key.toLowerCase();
+        return dbName === normalizedSearch || 
+               dbKey === normalizedSearch ||
+               dbName.includes(normalizedSearch) ||
+               normalizedSearch.includes(dbName);
+      });
+      if (matchedKey) {
+        agent = store.agents[matchedKey];
+        agent_id = matchedKey; // update for reference
+      }
+    }
+    
+    if (!agent) throw new Error(`Agent not found: ${agent_id}. Try checking get_agents first.`);
 
     const folder = agent.folder;
-    const memory = fs.readFileSync(path.join(process.cwd(), 'workspace', 'agents', folder, 'MEMORY.md'), 'utf-8');
-    const logs = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'workspace', 'agents', folder, 'logs.json'), 'utf-8'));
+    let memory = 'No memory file found.';
+    let logsArray: any[] = [];
+    
+    try {
+      memory = fs.readFileSync(path.join(process.cwd(), 'workspace', 'agents', folder, 'MEMORY.md'), 'utf-8');
+    } catch (e) {
+      // Memory might not exist yet
+    }
+    
+    try {
+      logsArray = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'workspace', 'agents', folder, 'logs.json'), 'utf-8'));
+    } catch (e) {
+      // Logs might not exist yet
+    }
+
+    const recentMemory = memory.slice(-2000);
+    const recentLogsArray = logsArray.slice(-5);
+    
+    const formattedLogs = recentLogsArray.length > 0 
+      ? recentLogsArray.map((l: any) => `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.type.toUpperCase()}: ${l.text}`).join('\n')
+      : 'No recent activity.';
+
+    const reply = `📊 **Agent Status: ${agent.name}**\n\n**Recent Activity Logs:**\n\`\`\`text\n${formattedLogs}\n\`\`\`\n\n**Latest Memory Snippet:**\n\`\`\`markdown\n${recentMemory}\n\`\`\``;
 
     return wrapResponse(source, {
       id: agent_id,
       name: agent.name,
-      memorySnippet: memory.slice(-2000), // Get recent memory
-      recentLogs: logs.slice(-10) // Get last 10 logs
-    });
+      memorySnippet: recentMemory,
+      recentLogs: recentLogsArray
+    }, false, reply);
+  } catch (err: any) {
+    return wrapError(source, err.message);
+  }
+}
+
+/**
+ * Functional Memory Search: Scans chat history and agent workspaces for context.
+ */
+export async function memory_search(args: { task_id?: string; requester?: string; query: string }) {
+  const { task_id, requester = 'orchestrator', query } = args;
+  const source = 'memory_search';
+
+  if (!query) return wrapError(source, 'Missing query');
+  if (!(await checkPermissions(requester, source))) return wrapError(source, 'Unauthorized');
+
+  try {
+    const results: any[] = [];
+    const searchTerms = query.toLowerCase().split(' ');
+
+    // 1. Search Chat History
+    const chatPath = path.resolve(process.cwd(), 'src/data/chat/history.json');
+    if (fs.existsSync(chatPath)) {
+      const history = JSON.parse(fs.readFileSync(chatPath, 'utf-8'));
+      const matches = history.filter((m: any) => 
+        m.content?.toLowerCase().includes(query.toLowerCase())
+      ).slice(-3); // Get last 3 relevant matches
+      
+      matches.forEach((m: any) => results.push({
+        source: 'Chat History',
+        content: m.content,
+        timestamp: m.timestamp
+      }));
+    }
+
+    // 2. Search Agent Memories
+    const agentsDir = path.resolve(process.cwd(), 'workspace', 'agents');
+    if (fs.existsSync(agentsDir)) {
+      const folders = fs.readdirSync(agentsDir);
+      for (const folder of folders) {
+        const memoryPath = path.join(agentsDir, folder, 'MEMORY.md');
+        if (fs.existsSync(memoryPath)) {
+          const content = fs.readFileSync(memoryPath, 'utf-8');
+          if (content.toLowerCase().includes(query.toLowerCase())) {
+            results.push({
+              source: `Agent Memory (${folder})`,
+              content: content.slice(0, 500) + '...', // First 500 chars
+            });
+          }
+        }
+      }
+    }
+
+    const reply = results.length > 0
+      ? `🧠 **Memory Search Results for "${query}":**\n\n${results.map(r => `📍 **${r.source}**:\n> ${r.content.replace(/\n/g, '\n> ').slice(0, 300)}...`).join('\n\n')}`
+      : `🔍 No specific matches found in memory for "${query}". I'll rely on the current session context.`;
+
+    return wrapResponse(source, results, false, reply);
   } catch (err: any) {
     return wrapError(source, err.message);
   }

@@ -230,7 +230,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   {
     id: 'instagram_dm_sender',
     name: 'Instagram DM Sender',
-    description: 'Send a Direct Message via Instagram. Requires explicit user confirmation before calling.',
+    description: 'Send a Direct Message via Instagram. You MUST pass the `threadUrl` if replying to a fetched message. Requires explicit user confirmation.',
     category: 'Messaging',
     badge: 'CORE',
     source: 'brain/tools/instagram_dm.ts',
@@ -322,7 +322,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   {
     id: 'manage_agent',
     name: 'Manage Agent',
-    description: 'Cross-agent orchestration tool. Assign or unassign tools and skills, restart, or delete other agents. Cannot be used by agents to modify themselves.',
+    description: 'Cross-agent orchestration tool. Operations: assign_tool, unassign_tool, assign_skill, unassign_skill, restart_agent, delete_agent, update_config (pass config_updates object).',
     category: 'Agents',
     badge: 'CORE',
     source: 'brain/tools/manage_agent.ts',
@@ -410,6 +410,14 @@ export const ALL_TOOLS: ToolDefinition[] = [
     category: 'Intelligence',
     badge: 'CORE',
     source: 'brain/tools/instagram_fetch.ts',
+  },
+  {
+    id: 'improvement_propose',
+    name: 'Propose Improvement',
+    description: 'Propose a system upgrade, code change, or skill modification. Sent to the Improvements tab for user review.',
+    category: 'Intelligence',
+    badge: 'CORE',
+    source: 'brain/tools/improvement_propose.ts',
   },
 ];
 

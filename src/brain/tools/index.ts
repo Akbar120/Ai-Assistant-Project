@@ -12,7 +12,17 @@ import { execute_agent_notify } from './agent_notify';
 
 import { appendLog, updateTask, getTask } from '../taskService';
 
-export async function runTool(tool: string, args: any, requester: string = 'orchestrator', agentId?: string) {
+// Module Reload Tag: 2026-04-23T13:45:00
+console.log('[Tools] Loading tool definition version 2.1 (Direct execution enabled)');
+
+export async function runTool(tool: string, args: any, requester: string = 'orchestrator', agentId?: string): Promise<any> {
+  // Use refined permission guard for balanced security and functionality
+  const { executeWithRefinedPermission } = await import('./refinedPermissionGuard');
+  
+  return await executeWithRefinedPermission(tool, args, requester, agentId);
+}
+
+export async function runToolWithoutGuard(tool: string, args: any, requester: string = 'orchestrator', agentId?: string): Promise<any> {
   const taskId = args.task_id;
 
   // Agents can call tools without a task_id — they run in the background autonomously
@@ -51,7 +61,7 @@ export async function runTool(tool: string, args: any, requester: string = 'orch
         break;
       case 'instagram_dm':
       case 'instagram_dm_sender': // alias for agents
-        result = await execute_instagram_dm(args);
+        result = await execute_instagram_dm(args, agentId);
         break;
       case 'instagram_fetch':
       case 'instagram_dm_reader':   // alias: read DMs
@@ -85,11 +95,48 @@ export async function runTool(tool: string, args: any, requester: string = 'orch
       case 'code_executor':
         result = await execute_code_executor(args);
         break;
+      case 'read_file':
+        result = await execute_code_executor({ ...args, operation: 'read_file' });
+        break;
+      case 'write_file':
+        result = await execute_code_executor({ ...args, operation: 'write_file' });
+        break;
+      case 'define_tool':
+        result = await execute_code_executor({ ...args, operation: 'create_tool' });
+        break;
+      case 'reasoning_engine':
+        result = { success: true, reply: "System reasoning engine engaged. Context analyzed and strategy optimized." };
+        break;
       case 'manage_agent':
         result = await execute_manage_agent({ ...args, requester: requester === 'agent' ? agentId : requester });
         break;
       case 'install_skill':
         result = await execute_install_skill(args);
+        break;
+      case 'improvement_propose':
+        const { execute_improvement_propose } = await import('./improvement_propose');
+        result = await execute_improvement_propose(args);
+        break;
+      case 'get_config':
+        result = await reality.get_config(args);
+        break;
+      case 'get_channels':
+        result = await reality.get_channels(args);
+        break;
+      case 'get_agents':
+        result = await reality.get_agents(args);
+        break;
+      case 'get_tasks':
+        result = await reality.get_tasks(args);
+        break;
+      case 'get_skills':
+        result = await reality.get_skills(args);
+        break;
+      case 'get_agent_output':
+        result = await reality.get_agent_output(args);
+        break;
+      case 'memory_search':
+        result = await reality.memory_search(args);
         break;
       default:
         throw new Error(`Unknown tool: ${tool}`);

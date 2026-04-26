@@ -85,13 +85,11 @@ export function useVoiceEngine(onTranscript?: (text: string) => void) {
   const setListening = useCallback((enabled: boolean) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     if (enabled) {
-      // Resume passive listening
-      wsRef.current.send(JSON.stringify({ type: 'set_conversation', value: false }));
-      console.log('[VoiceEngine] Resumed wake word listening.');
+      wsRef.current.send(JSON.stringify({ type: 'set_deaf', value: false }));
+      console.log('[VoiceEngine] Wake word listening enabled (deaf mode OFF).');
     } else {
-      // Go fully deaf — Python engine enters PASSIVE but we override to sleep
-      wsRef.current.send(JSON.stringify({ type: 'sleep' }));
-      console.log('[VoiceEngine] Wake word listening disabled (deaf mode).');
+      wsRef.current.send(JSON.stringify({ type: 'set_deaf', value: true }));
+      console.log('[VoiceEngine] Wake word listening disabled (deaf mode ON).');
     }
   }, []);
 

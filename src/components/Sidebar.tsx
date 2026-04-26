@@ -36,12 +36,14 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/agents', label: 'Agents', icon: '🤖' },
       { href: '/skills', label: 'Skills', icon: '⚡' },
+      { href: '/notifications', label: 'Notifications', icon: '🔔' },
     ]
   },
   {
     label: 'Settings',
     items: [
-      { href: '/accounts', label: 'Config', icon: '⚙️' },
+      { href: '/connected-apps', label: 'Connections', icon: '🔗' },
+      { href: '/settings', label: 'Settings', icon: '⚙️' },
     ]
   }
 ];
@@ -227,10 +229,11 @@ export default function Sidebar() {
                   {item.href === '/improvements' && pendingImprovements > 0 && (
                     <span className="nav-badge" style={{ background: '#facc15', color: '#000' }}>{pendingImprovements}</span>
                   )}
-                  {item.href === '/chat' && pendingApprovalCount > 0 && (
+                  {/* Notification badges — now on /notifications, not /chat */}
+                  {item.href === '/notifications' && pendingApprovalCount > 0 && (
                     <span className="nav-badge" style={{ background: 'var(--error)', color: '#fff' }}>{pendingApprovalCount} Wait</span>
                   )}
-                  {item.href === '/chat' && pendingApprovalCount === 0 && unreadNotifications > 0 && (
+                  {item.href === '/notifications' && pendingApprovalCount === 0 && unreadNotifications > 0 && (
                     <span className="nav-badge" style={{ background: '#facc15', color: '#000' }}>{unreadNotifications}</span>
                   )}
                 </Link>

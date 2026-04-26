@@ -1,42 +1,9 @@
 // Ollama client — optimized for low-latency voice responses
 // Defaults to http://localhost:11434
 
-import fs from 'fs';
-import path from 'path';
-
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-export const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:e4b';
-export const TEXT_MODEL = process.env.OLLAMA_TEXT_MODEL || 'gemma4:e4b';
-
-// ── Persistent Model Selection (file-based, survives serverless restarts) ──────
-const MODEL_FILE = path.join(process.cwd(), 'src', 'data', 'active_model.json');
-
-/**
- * Always reads from disk — no in-memory state.
- * Safe across Next.js serverless restarts, hot reloads, and concurrent requests.
- */
-export function getActiveModel(): string {
-  try {
-    const data = fs.readFileSync(MODEL_FILE, 'utf-8');
-    const parsed = JSON.parse(data);
-    return (parsed?.model && typeof parsed.model === 'string') ? parsed.model : DEFAULT_MODEL;
-  } catch {
-    return DEFAULT_MODEL;
-  }
-}
-
-/**
- * Persists model selection to disk.
- */
-export function setActiveModel(model: string): void {
-  try {
-    const dir = path.dirname(MODEL_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(MODEL_FILE, JSON.stringify({ model }, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('[Ollama] Failed to persist active model:', err);
-  }
-}
+const OLLAMA_URL = 'http://127.0.0.1:11434';
+export const DEFAULT_MODEL = 'gemma4:e4b';
+export const TEXT_MODEL = 'gemma4:e4b';
 
 export interface OllamaMessage {
   role: 'system' | 'user' | 'assistant';
@@ -67,12 +34,10 @@ export async function ollamaChat(options: OllamaChatOptions): Promise<string> {
       stream: false,
       options: {
         temperature: options.temperature ?? 0.3,
-        // Speed optimizations — keeps JSON responses short and fast
         num_predict: options.num_predict ?? 512,
-        top_k: options.top_k ?? 20,        // smaller = faster sampling
+        top_k: options.top_k ?? 20,
         top_p: options.top_p ?? 0.85,
         repeat_penalty: options.repeat_penalty ?? 1.1,
-        // Disable mirostat for speed
         mirostat: 0,
       },
     }),
@@ -87,10 +52,6 @@ export async function ollamaChat(options: OllamaChatOptions): Promise<string> {
   return data.message?.content || '';
 }
 
-/**
- * Stream Ollama response — yields text chunks as they arrive.
- * Used for sentence-level TTS pipelining.
- */
 export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenerator<string> {
   const model = options.model || DEFAULT_MODEL;
   const resp = await fetch(`${OLLAMA_URL}/api/chat`, {
@@ -185,8 +146,7 @@ export async function ollamaChatWithSentenceCallback(
 export async function checkOllamaStatus(): Promise<{ running: boolean; models: string[]; error?: string }> {
   try {
     const resp = await fetch(`${OLLAMA_URL}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
-      cache: 'no-store' // Ensure we don't get cached "Off" state
+      cache: 'no-store'
     });
     if (!resp.ok) {
        return { running: false, models: [], error: `HTTP ${resp.status}` };
@@ -198,13 +158,3 @@ export async function checkOllamaStatus(): Promise<{ running: boolean; models: s
     return { running: false, models: [], error: err.message };
   }
 }
-
-export async function pullOllamaModel(model: string): Promise<void> {
-  await fetch(`${OLLAMA_URL}/api/pull`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: model }),
-  });
-}
-
-export const SYSTEM_PROMPT = `You are Jenny, an intelligent Hinglish AI assistant. Keep replies SHORT (2-3 sentences) for voice. Always respond ONLY with valid JSON.`;

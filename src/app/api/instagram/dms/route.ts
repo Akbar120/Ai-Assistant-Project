@@ -4,29 +4,41 @@ import path from 'path';
 import fs from 'fs';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const INSTAGRAM_COOKIES_FILE = path.join(process.cwd(), 'sessions', 'instagram-cookies.json');
 
-export interface DMContact {
+interface DMContact {
   username: string;
   displayName: string;
   avatarUrl?: string;
   lastMessage?: string;
   isGroup?: boolean;
-  isUnread?: boolean;
-  threadUrl?: string;
+  isUnread: boolean;
+  threadUrl: string;
+  threadId?: string;
+  messages?: string[];
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const deepRead = url.searchParams.get('deepRead') === 'true';
+  const deepRead = url.searchParams.get('deepRead') !== 'false';
 
   if (!fs.existsSync(INSTAGRAM_COOKIES_FILE)) {
     return NextResponse.json({ success: false, error: 'No Instagram session. Please log in first.' }, { status: 401 });
   }
 
   const cookies = JSON.parse(fs.readFileSync(INSTAGRAM_COOKIES_FILE, 'utf-8'));
+
+  // Extract key cookies
+  const sessionId = cookies.find((c: any) => c.name === 'sessionid')?.value;
+  const csrftoken = cookies.find((c: any) => c.name === 'csrftoken')?.value;
+
+  if (!sessionId) {
+    return NextResponse.json({ success: false, error: 'No valid session' }, { status: 401 });
+  }
+
+  // Try using Instagram's internal API directly
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
@@ -37,176 +49,207 @@ export async function GET(request: Request) {
   const page = await context.newPage();
 
   try {
-    await page.goto('https://www.instagram.com/direct/inbox/', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3500);
+    // Navigate to Instagram to establish session
+    await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
 
-    for (const t of ['Not Now', 'Not now', 'Cancel']) {
-      const btn = page.getByRole('button', { name: t, exact: true });
+    // Dismiss any popups
+    for (const t of ['Not Now', 'Not now', 'Cancel', 'Allow', 'Not Now ']) {
+      const btn = page.getByRole('button', { name: new RegExp(`^${t}$`, 'i') });
       if (await btn.count() > 0) await btn.first().click().catch(() => {});
     }
     await page.waitForTimeout(1000);
 
-    const contacts: DMContact[] = await page.evaluate(() => {
-      const results: DMContact[] = [];
-      const seen = new Set<string>();
+    // Navigate to DM inbox
+    await page.goto('https://www.instagram.com/direct/inbox/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(12000);
+
+    // Take screenshot
+    await page.screenshot({ path: path.join(process.cwd(), 'sessions', 'ig-dms-latest.png') });
+
+    // Check what's in the DOM
+    const domCheck = await page.evaluate(() => {
+      // Find all potential thread containers (Instagram uses div[role="button"] for threads)
+      const threadElements = Array.from(document.querySelectorAll('div[role="button"]'));
       
-      // Blacklist of system placeholders that don't count as "real" text
-      const JUNK_PATTERNS = [
-        'sent a gif', 'sent a message', 'sent a photo', 'sent a video', 
-        'sent an attachment', 'shared a profile', 'shared a story',
-        'shared a post', 'shared a reel', 'reacted to your',
-        'sent a sticker', 'sent an audio', 'note'
-      ];
-
-      // Specifically target main list to avoid top horizontal Notes bar
-      const listItems = document.querySelectorAll('div[role="button"]:not([aria-label*="Note"])');
-      
-      for (const item of Array.from(listItems)) {
-        // Skip horizontal layout items (Instagram Notes)
-        const parent = item.parentElement;
-        if (parent) {
-          const style = window.getComputedStyle(parent);
-          if (style.display === 'flex' && style.flexDirection === 'row') continue;
-        }
-        if (item.closest('ul') || item.clientWidth < 100) continue;
-
-        const img = item.querySelector('img');
-        if (!img) continue;
-
-        const spans = Array.from(item.querySelectorAll('span'));
-        const textContents: string[] = [];
-
-        for (const span of spans) {
-          const text = (span.textContent || '').trim();
-          if (text && !textContents.includes(text)) {
-            textContents.push(text);
-          }
-        }
-
-        if (textContents.length > 0) {
-          const displayName = textContents[0];
-          let lastMsg = '';
-          if (textContents.length > 1) {
-             const potentialMsg = textContents[1].split('·')[0].trim();
-             lastMsg = potentialMsg.length > 40 ? potentialMsg.substring(0, 40) + '…' : potentialMsg;
-          }
-
-          // Filter out obvious junk from the inbox list
-          const isJunk = JUNK_PATTERNS.some(p => lastMsg.toLowerCase().includes(p));
-          if (isJunk) lastMsg = ''; // Clear it out so deepRead might try to find something better or we skip it
-
-          const alt = img.getAttribute('alt') || '';
-          const match = alt.match(/^(.+?)(?:'s profile picture|'s)$/);
-          let username = match ? match[1].trim() : displayName.toLowerCase().replace(/\s+/g, '_');
-
-          if (seen.has(username)) continue;
-          seen.add(username);
-
-          let isUnread = false;
-          const allDivs = Array.from(item.querySelectorAll('div'));
-          const hasBlueDot = allDivs.some(d => {
-             const style = window.getComputedStyle(d);
-             return style.backgroundColor === 'rgb(0, 149, 246)' && style.width !== '0px' && parseInt(style.width) <= 16;
-          });
+      const threads: any[] = threadElements
+        .filter(el => {
+          // Check for "Unread" text which is usually present for unread threads (accessibility)
+          // or check for the blue dot via background color
+          const hasUnreadText = el.textContent?.includes('Unread');
+          const hasBlueDot = !!el.querySelector('div[style*="background-color: rgb(0, 149, 246)"]');
+          const isBold = !!el.querySelector('span[style*="font-weight: 600"]');
+          return hasUnreadText || hasBlueDot || isBold;
+        })
+        .map(el => {
+          // Try to find the username.
+          const spans = Array.from(el.querySelectorAll('span'));
+          // Filter out spans that are purely status indicators
+          const possibleNames = spans
+            .map(s => s.textContent?.trim() || '')
+            .filter(t => t && t !== 'Active' && t !== 'Unread' && t.length > 2);
           
-          const isBold = spans.some(s => {
-             const fw = window.getComputedStyle(s).fontWeight;
-             return fw === '600' || fw === '700' || fw === 'bold';
-          });
+          const name = possibleNames[0] || 'Unknown';
+          const previewSpan = spans.find(s => s.textContent?.length && s.textContent.length > 5 && s.textContent !== name && !s.textContent.includes('Unread'));
+          const preview = previewSpan?.textContent?.trim() || '';
           
-          if (hasBlueDot || (isBold && lastMsg)) {
-             isUnread = true;
-          }
+          const aTag = el.querySelector('a') || el.closest('a');
+          const href = aTag ? aTag.getAttribute('href') : `/direct/t/${name}`;
+          
+          return {
+            text: el.textContent?.trim().substring(0, 100),
+            name: name,
+            preview: preview,
+            isUnread: true,
+            href: href 
+          };
+        });
 
-          let threadUrl = '';
-          let currentEl: HTMLElement | null = item as HTMLElement;
-          while (currentEl && currentEl.tagName !== 'BODY') {
-             if (currentEl.tagName === 'A') {
-                const href = currentEl.getAttribute('href');
-                if (href && href.includes('/direct/t/')) {
-                   threadUrl = 'https://www.instagram.com' + href;
-                   break;
-                }
-             }
-             currentEl = currentEl.parentElement;
-          }
-
-          if (!threadUrl) threadUrl = 'https://www.instagram.com/direct/inbox/';
-
-          // Only add if it's potentially unread and has text, or we'll deep read it later
-          results.push({
-            username,
-            displayName,
-            avatarUrl: img.getAttribute('src') || undefined,
-            lastMessage: lastMsg || undefined,
-            isUnread,
-            threadUrl,
-          });
-
-          if (results.length >= 25) break; 
-        }
-      }
-      return results;
+      return {
+        unreadThreads: threads,
+        count: threads.length,
+        totalElements: threadElements.length
+      };
     });
 
-    // ── Deep Read: Enter Threads and extract text ──
-    if (deepRead) {
-      const topUnread = contacts.filter(c => c.isUnread && c.threadUrl !== 'https://www.instagram.com/direct/inbox/').slice(0, 3);
-      
-      for (const contact of topUnread) {
-         try {
-           await page.goto(contact.threadUrl as string, { waitUntil: 'domcontentloaded' });
-           await page.waitForTimeout(3000); 
+    console.log('[DM Reader] DOM Check:', JSON.stringify(domCheck, null, 2));
+    fs.writeFileSync(path.join(process.cwd(), 'sessions', 'domCheck.json'), JSON.stringify(domCheck, null, 2));
 
-           const chatSnippet = await page.evaluate(() => {
-             const JUNK_PATTERNS = [
-               'sent a gif', 'sent a message', 'sent a photo', 'sent a video', 
-               'sent an attachment', 'shared a profile', 'shared a story',
-               'shared a post', 'shared a reel', 'reacted to your',
-               'sent a sticker', 'sent an audio'
-             ];
+    const threadLinks = domCheck.unreadThreads;
+    console.log(`[DM Reader] Thread links found: ${threadLinks.length}`);
 
-             const messageNodes = Array.from(document.querySelectorAll('div[dir="auto"]'));
-             const texts = messageNodes
-                 .map(n => n.textContent?.trim() || '')
-                 .filter(t => {
-                    const low = t.toLowerCase();
-                    return t.length > 0 && 
-                           !low.includes('liked') && 
-                           t !== 'Reply' && 
-                           t !== 'Forward' &&
-                           !JUNK_PATTERNS.some(p => low.includes(p));
-                 })
-                 .slice(-5); 
-             
-             if (texts.length > 0) {
-                 return texts.join(' | ');
-             }
-             return null;
-           });
+    const contacts: DMContact[] = [];
 
-           if (chatSnippet) {
-              contact.lastMessage = chatSnippet;
-           } else {
-              // If no real text found, it was just attachments
-              contact.isUnread = false; // "Mark" as ignored by removing unread status for this tool's response
-              contact.lastMessage = undefined;
-           }
-         } catch (e) {
-           console.log("Deep read error for", contact.username);
-         }
+    // Process each thread
+    for (let i = 0; i < threadLinks.length && i < 5; i++) {
+      const link = threadLinks[i];
+      try {
+        console.log(`[DM Reader] Processing unread thread: ${link.name}`);
+
+        // Click the thread directly in the inbox
+        console.log(`[DM Reader] Clicking thread for: ${link.name}`);
+        const clicked = await page.evaluate((targetName) => {
+          const elements = Array.from(document.querySelectorAll('div[role="button"]'));
+          const target = elements.find(el => el.textContent?.includes(targetName));
+          if (target) {
+            (target as HTMLElement).click();
+            return true;
+          }
+          return false;
+        }, link.name);
+
+        if (!clicked) {
+          console.log(`[DM Reader] Failed to click thread for ${link.name}`);
+          continue;
+        }
+
+        await page.waitForTimeout(6000); // Wait for thread to load
+
+        const threadUrl = page.url();
+        const threadId = threadUrl.split('/direct/t/')[1]?.replace('/', '');
+
+        if (!threadId || threadUrl.includes('inbox')) {
+          console.log(`[DM Reader] Navigation failed, still on inbox for ${link.name}. URL: ${threadUrl}`);
+          continue;
+        }
+
+        console.log(`[DM Reader] Successfully navigated to thread: ${threadId}`);
+
+        // Scroll to load messages
+        await page.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight);
+        });
+        await page.waitForTimeout(2000);
+
+        // Take thread screenshot
+        await page.screenshot({ path: path.join(process.cwd(), 'sessions', `ig-thread-${threadId}.png`) });
+
+        // Get messages
+        const messages = await page.evaluate(() => {
+          const junk = [
+            'sent a gif', 'sent a photo', 'sent a video', 'sent a message',
+            'sent an attachment', 'liked', 'typing', 'seen', 'reacted to'
+          ];
+          const messages: string[] = [];
+          const seen = new Set<string>();
+
+          // Try div[dir="auto"] - Instagram's text container
+          const textNodes = document.querySelectorAll('div[dir="auto"]');
+          for (const node of textNodes) {
+            const text = (node.textContent || '').trim();
+            if (text.length < 2 || text.length > 500) continue;
+            if (['Reply', 'Forward', 'React', 'Like', 'Copy', 'Unsend', 'Info'].includes(text)) continue;
+            // Include media messages so the agent knows something was sent
+            if (junk.some(j => text.toLowerCase() === j.toLowerCase())) continue; // only skip exact matches
+            if (text.match(/^\d+\s*(minute|hour|day|yesterday|s|ago)/i)) continue;
+            if (seen.has(text)) continue;
+
+            seen.add(text);
+            messages.push(text);
+          }
+
+          return messages;
+        });
+
+        if (messages.length > 0) {
+          const cleanMessages = messages.filter((m: string) => {
+            const junk = ['sent a ', 'liked', 'typing', 'seen', 'reacted', 'forwarded'];
+            return !junk.some((j: string) => m.toLowerCase().startsWith(j)) && m.length > 1;
+          });
+
+          const finalMessages = cleanMessages.length > 0 ? cleanMessages : [link.preview || 'Sent an attachment'];
+
+          contacts.push({
+            username: (link as any).name || (link as any).text?.replace('@', '').trim() || threadId,
+            threadId: threadId,
+            displayName: (link as any).name || threadId,
+            lastMessage: finalMessages[finalMessages.length - 1],
+            messages: finalMessages,
+            isUnread: (link as any).isUnread,
+            threadUrl
+          });
+
+          console.log(`[DM Reader] Got ${finalMessages.length} messages from ${threadId}`);
+        } else {
+          // Fallback: Use the preview from the inbox if no messages found in thread
+          contacts.push({
+            username: (link as any).name || threadId,
+            threadId: threadId,
+            displayName: (link as any).name || threadId,
+            lastMessage: link.preview || 'Media/Attachment',
+            messages: [link.preview || 'Media/Attachment'],
+            isUnread: true,
+            threadUrl
+          });
+          console.log(`[DM Reader] No text nodes found in thread for ${threadId}. Using preview.`);
+        }
+      } catch (e) {
+        console.log(`[DM Reader] Error:`, e);
       }
     }
 
     await browser.close();
-    // Filter out contacts that ended up with no real message after deep read
-    const finalContacts = contacts.filter(c => c.lastMessage && c.lastMessage.length > 0);
-    return NextResponse.json({ success: true, contacts: finalContacts, count: finalContacts.length });
+
+    const finalContacts = contacts.filter(c => c.lastMessage);
+    console.log(`[DM Reader] Returning ${finalContacts.length} contacts`);
+
+    return NextResponse.json({
+      success: true,
+      contacts: finalContacts,
+      count: finalContacts.length,
+      debug: {
+        threadsFound: threadLinks.length,
+        threadsChecked: threadLinks.length
+      }
+    });
 
   } catch (err) {
-    try { await page.screenshot({ path: path.join(process.cwd(), 'sessions', 'ig-dms-error.png') }); } catch (_) {}
+    try {
+      await page.screenshot({ path: path.join(process.cwd(), 'sessions', 'ig-dms-error.png') });
+    } catch (_) {}
     await browser.close();
     const error = err instanceof Error ? err.message : 'Unknown error';
+    console.log(`[DM Reader] Error:`, error);
     return NextResponse.json({ success: false, error }, { status: 500 });
   }
 }

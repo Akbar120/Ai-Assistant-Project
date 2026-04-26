@@ -1,7 +1,7 @@
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 import { startAgentWorker } from './engine';
-import { ollamaChat } from '@/lib/ollama';
+import { ollamaChat } from '../lib/ollama';
 import { orchestrate } from './orchestrator';
 import { runTool } from './tools';
 import { addAgentNotification } from './state';
@@ -9,7 +9,7 @@ import { initializeWorkspace, buildHybridPrompt, upgradeAgentWorkspace } from '.
 import { extractAndSyncMemory, addSessionMemory, getSessionMemory } from './memoryService';
 
 // ─── Structured Log Entry ────────────────────────────────────────────────────
-export type LogType = 'THINK' | 'ACTION' | 'TOOL' | 'RESULT' | 'ERROR' | 'BOOT' | 'SYSTEM' | 'INFO';
+export type LogType = 'THINK' | 'ACTION' | 'TOOL' | 'RESULT' | 'ERROR' | 'BOOT' | 'SYSTEM' | 'INFO' | 'WARNING';
 
 export interface AgentLog {
   id: string;
@@ -183,35 +183,35 @@ export function ensureJennyAgent() {
   if (store.agents[JENNY_ID]) return; // Already exists
 
   const jennyFolder = 'system-jenny';
-  const jennyAgent: Agent = {
-    id: JENNY_ID,
-    name: 'Jenny',
-    role: 'System Orchestrator',
-    goal: 'Orchestrate all agents, manage goals, and be the central intelligence of OpenClaw.',
-    folder: jennyFolder,
-    status: 'running',
-    mode: 'idle',
-    isSystem: true,
-    cycleCount: 0,
-    lastCycle: {},
-    logs: [
-      {
-        id: 'jenny_boot_0',
-        type: 'BOOT',
-        timestamp: new Date().toLocaleTimeString(),
-        title: 'System Agent Online',
-        message: 'Jenny (System Orchestrator) initialized as primary brain of OpenClaw.',
-      }
-    ],
-    maxTokens: 8192,
-    useRotorQuant: false,
-    skills: ['agent_creator', 'task_manager', 'system_awareness', 'research', 'social_manager', 'confirmation_loop'],
-    tools: ['get_tasks', 'get_channels', 'get_agents', 'get_skills', 'get_config', 'search_web', 'instagram_dm_reader', 'instagram_dm_sender', 'platform_post', 'caption_manager'],
-    isAutonomous: true,
-    pollingInterval: 300000,
-    sessionMemory: [],
-    allowedTools: ['get_tasks', 'get_channels', 'get_agents', 'get_skills', 'get_config', 'search_web'],
-  };
+    const jennyAgent: Agent = {
+      id: JENNY_ID,
+      name: 'Jenny',
+      role: 'System Orchestrator',
+      goal: 'Orchestrate all agents, manage goals, and be the central intelligence of OpenClaw.',
+      folder: jennyFolder,
+      status: 'running',
+      mode: 'idle',
+      isSystem: true,
+      cycleCount: 0,
+      lastCycle: {},
+      logs: [
+        {
+          id: 'jenny_boot_0',
+          type: 'BOOT',
+          timestamp: new Date().toLocaleTimeString(),
+          title: 'System Agent Online',
+          message: 'Jenny (System Orchestrator) initialized as primary brain of OpenClaw.',
+        }
+      ],
+      maxTokens: 8192,
+      useRotorQuant: false,
+      skills: ['agent_creator', 'task_manager', 'system_awareness', 'research', 'social_manager', 'confirmation_loop', 'system_admin'],
+      tools: ['get_tasks', 'get_channels', 'get_agents', 'get_skills', 'get_config', 'search_web', 'instagram_dm_reader', 'instagram_dm_sender', 'platform_post', 'caption_manager', 'manage_agent', 'agent_command', 'install_skill', 'update_plan'],
+      isAutonomous: true,
+      pollingInterval: 300000,
+      sessionMemory: [],
+      allowedTools: ['get_tasks', 'get_channels', 'get_agents', 'get_skills', 'get_config', 'search_web', 'manage_agent', 'agent_command', 'install_skill', 'update_plan'],
+    };
 
   store.agents[JENNY_ID] = jennyAgent;
   saveAgentStore(store);
@@ -508,4 +508,28 @@ export function clearAgentLogs(id: string) {
     message: 'Previous logs cleared by user.',
   }];
   saveAgentStore(store);
+}
+
+// ─── Auto-Bootloader for Agents ─────────────────────────────────────────────
+// Automatically resume background workers for 'running' agents when the server
+// (re)starts or the Next.js module hot-reloads.
+const globalAny: any = global;
+if (!globalAny.__agentBootloaderRun) {
+  globalAny.__agentBootloaderRun = true;
+  
+  // Small delay to ensure all core modules are loaded before starting workers
+  setTimeout(() => {
+    try {
+      const store = getAgentStore();
+      for (const id of Object.keys(store.agents)) {
+        const agent = store.agents[id];
+        if (agent.status === 'running' && agent.isAutonomous && !agent.isSystem) {
+          console.log(`[Bootloader] Auto-resuming background worker: ${agent.name} (${id})`);
+          startAgentWorker(id);
+        }
+      }
+    } catch (e) {
+      console.error('[Bootloader] Failed to auto-resume agents:', e);
+    }
+  }, 2000);
 }

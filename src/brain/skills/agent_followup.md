@@ -48,6 +48,9 @@ These rules apply EXCLUSIVELY when the agent is approval-based:
 5. **MUST** call `agent_command(abandon)` if user says NO
 6. **NEVER** auto-execute without explicit user confirmation
 7. **NEVER** reply directly as the agent — always route through Jenny
+8. **MUST** ensure the background agent calls `agent_notify` after completing a result
+9. **MUST** wait for `agent_command`
+10. **NEVER** simulate or complete a task without actual execution using a tool
 
 ---
 

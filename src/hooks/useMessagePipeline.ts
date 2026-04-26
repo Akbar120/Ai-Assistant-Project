@@ -8,7 +8,7 @@ import { useStreamingTTS } from './useStreamingTTS';
 import type { ChatMessage } from '@/lib/chat-types';
 
 export function useMessagePipeline() {
-  const { appendMessage, messages, setLoading, setProcessingTaskLabel, isMuted } = useChatStore();
+  const { appendMessage, messages, setLoading, setProcessingTaskLabel, isMuted, updateMessage } = useChatStore();
   
   // Use a ref so dedup checks always see the latest messages, not a stale closure
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -23,9 +23,11 @@ export function useMessagePipeline() {
   const { enqueue, stopAllTTS } = useStreamingTTS();
 
   const spokenCache = useRef<Set<string>>(new Set());
+  const isMutedRef = useRef(isMuted);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
   const maybeSpeak = useCallback((text: string, source: any, priority = false) => {
-    if (!text || isMuted) return;
+    if (!text || isMutedRef.current) return;
     
     // ISSUE 4: Never verbalize system logs or internal messages
     if (source === 'system') return;
@@ -166,16 +168,33 @@ export function useMessagePipeline() {
       if (msg.role === 'assistant' && !spokenIds.current.has(msg.id)) {
         console.log(`[Pipeline] Background message detected: ${msg.id}`);
         spokenIds.current.add(msg.id);
-        maybeSpeak(msg.content, msg.source);
+        // ONLY speak messages that came from background agents — NOT from 'primary'/'chat' which
+        // are already spoken inline sentence-by-sentence during streaming.
+        if (msg.source === 'agent' || msg.source === 'system') {
+          maybeSpeak(msg.content, msg.source, false);
+        }
       }
     });
   }, [messages, maybeSpeak]);
 
+  // NOTE: Agent notifications no longer injected into chat.
+  // They live exclusively in /notifications. The sidebar badge
+  // provides the unread indicator. No proactive chat pollution.
+
   return {
     handleUserRequest,
     handleAssistantResponse,
+    updateMessage,
     maybeSpeak,
     stopAllTTS,
     pendingRequests
   };
 }
+
+/**
+ * Helper to determine if a message indicates the user has "responded" to a notification
+ */
+function hasUserResponded(messages: any[], notificationId: string): boolean {
+  return messages.some(m => m.role === 'user' && m.timestamp > Date.now() - 65000);
+}
+

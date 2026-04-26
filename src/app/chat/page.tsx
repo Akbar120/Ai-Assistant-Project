@@ -5,8 +5,12 @@ import { useChatStore } from '@/components/chat/ChatProvider';
 import { useMessagePipeline } from '@/hooks/useMessagePipeline';
 import { useVoiceEngine } from '@/hooks/useVoiceEngine';
 import type { ChatMessage } from '@/lib/chat-types';
-
+import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import ExecutionFlow from '@/components/dashboard/ExecutionFlow';
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type JennyMode = 'conversation' | 'planning' | 'analyze' | 'confirmation' | 'execution';
 
 type AgentStage = 'idle' | 'analyzing' | 'awaiting_platform' | 'posting' | 'done';
 
@@ -295,10 +299,12 @@ export default function ChatPage() {
     setProcessingTaskLabel,
     isMuted,
     setIsMuted,
+    isSpeaking,
   } = useChatStore();
   const { handleUserRequest, handleAssistantResponse, stopAllTTS, pendingRequests } = useMessagePipeline();
-  const { setListening } = useVoiceEngine(); // Used for Deaf Mode
+  const { setListening } = useVoiceEngine(); // Deaf Mode
   const [input, setInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
   
   // Helper to format numeric timestamp for display (Fix for stacking bug)
   const formatTime = (ts: number | string) => {
@@ -329,6 +335,7 @@ export default function ChatPage() {
   }, [handleAssistantResponse, initialized, messages.length]);
 
   // Agent state
+  const [activeMode, setActiveMode] = useState<JennyMode>('conversation');
   const [agentStage, setAgentStage] = useState<AgentStage>('idle');
   const [isPosting, setIsPosting] = useState(false);
   const [postResults, setPostResults] = useState<Record<string, { success: boolean; error?: string }> | null>(null);
@@ -351,8 +358,10 @@ export default function ChatPage() {
 
   const lastImageRef = useRef<File | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const autoScrollRef = useRef(true); // true = follow new messages
   
   // ─── Request Tracker (Race Condition Protection) ──────────────────────────
   const currentRequestRef = useRef<string | null>(null);
@@ -372,48 +381,20 @@ export default function ChatPage() {
   }, [isThinking]);
 
 
+  // Smart auto-scroll: follows new messages unless user manually scrolled up
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isPosting]);
+    if (autoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isPosting, showThinking]);
 
-  // ── Auto-Inject Agent Notifications ─────────────────────────────────────
+  // Scroll to bottom on mount / returning to page
   useEffect(() => {
-    if (!initialized) return;
-
-    const fetchNotifications = async () => {
-      try {
-        const res = await fetch('/api/agents/notifications', { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
-        
-        if (data.notifications && data.notifications.length > 0) {
-          for (const notif of data.notifications) {
-            // Check if we already injected this notification
-            const exists = messages.some(m => m.id === notif.id);
-            if (!exists) {
-              const prefix = notif.requiresApproval ? '⏸️ **Approval Needed**' : '✅ **Agent Report**';
-              const content = `${prefix} from ${notif.agentName}:\n\n${notif.text}`;
-              
-              handleAssistantResponse(content, 'system', undefined, {
-                id: notif.id,
-                timestamp: Date.now()
-              });
-              
-              // Mark as read immediately after injecting so we don't repeat
-              await fetch('/api/agents/notifications', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'dismiss', id: notif.id })
-              });
-            }
-          }
-        }
-      } catch (err) {}
-    };
-
-    const iv = setInterval(fetchNotifications, 5000);
-    return () => clearInterval(iv);
-  }, [initialized, messages, handleAssistantResponse]);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      autoScrollRef.current = true;
+    }, 100);
+  }, []);
 
   // 🧹 One-time Chat Memory Flush (System Stabilization)
   useEffect(() => {
@@ -802,14 +783,20 @@ export default function ChatPage() {
               // 🔥 PRO-LEVEL TTS: Play sentence immediately
               handleAssistantResponse(data.text, 'primary', internalId, { id: assistantMessageId, content: (fullReply || '') + data.text }, false);
               fullReply += (data.text || '') + ' ';
+            } else if (data.type === 'mode') {
+              // Early mode transition for instant UI sync
+              if (data.mode) setActiveMode(data.mode);
             } else if (data.type === 'full') {
               // Finalize with full action state
+              if (data.mode) setActiveMode(data.mode);
               handleAssistantResponse(data.reply || '', 'primary', internalId, { 
                 id: assistantMessageId, 
                 content: data.reply || '',
                 isPosting: data.action === 'post',
                 postResult: data.action === 'post' ? data.result : undefined
               }, false);
+            } else if (data.type === 'error') {
+              throw new Error(data.message || 'Server error in stream');
             }
           } catch (e) {
             console.warn('[SSE] Parse error on buffered line:', e, line);
@@ -910,378 +897,335 @@ export default function ChatPage() {
     ? ['Analyze and generate captions', 'Post to Instagram feed', 'Add to story']
     : ['Post this image to Instagram', 'Suggest hashtags for tech', 'Write a viral tweet'];
 
-  if (!hasHydrated || !initialized) {
-    return null;
-  }
-
   return (
-    <>
+    <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', background: '#0a0b10', color: '#d1d5db', fontSize: 14 }}>
+      <DashboardSidebar />
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', minWidth: 0 }}>
+        <DashboardHeader activeMode={activeMode} />
+        
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+          {/* BEGIN: Chat Area */}
+          <section style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, minHeight: 0 }}>
+            
+            {/* Chat Messages — scrollable, messages pushed to bottom */}
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto custom-scrollbar"
+              style={{ padding: '24px 24px 8px 24px', minHeight: 0 }}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                // Re-enable auto-scroll when user manually scrolls within 60px of bottom
+                autoScrollRef.current = distFromBottom < 60;
+              }}
+            >
+              {/* Spacer pushes messages to bottom when few messages */}
+              <div className="flex flex-col justify-end min-h-full gap-6">
+              {(() => {
+                // Compute the last AI message id for speaking highlight
+                const lastAiId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
+                return messages.map((msg) => {
+                  const isSpeakingThis = isSpeaking && msg.id === lastAiId && msg.role === 'assistant';
+                  return (
+                <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'gap-3'}`}>
+                  
+                  {msg.role === 'assistant' && (
+                    <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', overflow: 'hidden', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 15%' }} src="/jenny-image/avatar.jpg" />
+                    </div>
+                  )}
 
-      <div className="topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#ff6b6b,#f09433)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16
-          }}>🌸</div>
-          <div>
-            <div className="topbar-title">Jenny AI</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -2 }}>
-              {showThinking ? (
-                <span className="animate-pulse">Jenny is still working…</span>
-              ) : agentStage === 'idle' ? 'Ready' : 
-               agentStage === 'analyzing' ? 'Analyzing…' : 
-               agentStage === 'posting' ? 'Posting…' : 'Done'}
-            </div>
-          </div>
-        </div>
-
-        <div className="topbar-actions">
-          {/* Mute TTS button */}
-          <button 
-            className={`btn btn-sm ${isMuted ? 'btn-danger' : 'btn-ghost'}`}
-            onClick={() => {
-              const newMuted = !isMuted;
-              setIsMuted(newMuted);
-              if (newMuted) stopAllTTS();
-            }}
-            title={isMuted ? 'Unmute TTS' : 'Mute TTS'}
-            style={{ fontSize: 16 }}
-          >
-            {isMuted ? '🔇' : '🔊'}
-          </button>
-          {/* Deaf Mode Toggle */}
-          <button 
-            className="btn btn-ghost btn-sm"
-            onClick={(e) => {
-              const btn = e.currentTarget;
-              const isDeaf = btn.classList.contains('btn-danger');
-              
-              if (isDeaf) {
-                // Was deaf, make active
-                btn.classList.remove('btn-danger');
-                btn.classList.add('btn-ghost');
-                btn.innerText = '👂 Wake Word: ON';
-                setListening(true);
-                toast('Wake word listening resumed.', 'success');
-              } else {
-                // Was active, make deaf
-                btn.classList.remove('btn-ghost');
-                btn.classList.add('btn-danger');
-                btn.innerText = '🔕 Deaf Mode: ON';
-                setListening(false);
-                toast('Wake word listening disabled.', 'success');
-              }
-            }}
-            title="Toggle Deaf Mode (Stop listening for Jenny)"
-          >
-            👂 Wake Word: ON
-          </button>
-          <button 
-            className="btn btn-ghost btn-sm" 
-            onClick={() => {
-              if (typeof window !== 'undefined' && (window as any).require) {
-                const { ipcRenderer } = (window as any).require('electron');
-                ipcRenderer.send('show-voice-widget');
-              }
-            }}
-          >
-            🎤 Voice
-          </button>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Powered by Ollama</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => {
-            void replaceMessages([]);
-            setPostResults(null);
-            setAgentStage('idle');
-            lastImageRef.current = null;
-          }}>
-            🗑 New Chat
-          </button>
-        </div>
-      </div>
-
-      <div className="chat-layout" style={{ height: 'calc(100vh - 60px)' }}>
-        <div className="chat-messages">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`chat-message ${msg.role}`}>
-              <div className={`chat-avatar ${msg.role}`}>
-                {msg.role === 'assistant' ? '🌸' : '👤'}
-              </div>
-              <div style={{ flex: 1, maxWidth: '80%' }}>
-                {msg.file && (
-                  <div style={{ marginBottom: 8 }}>
-                    {msg.file.type.startsWith('image/') && msg.file.url ? (
-                      <img
-                        src={msg.file.url}
-                        alt={msg.file.name}
-                        style={{ maxWidth: 200, maxHeight: 200, borderRadius: 12, objectFit: 'cover', border: '1px solid var(--border-subtle)' }}
-                      />
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-base)', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', width: 'fit-content', fontSize: 13 }}>
-                        📎 {msg.file.name}
+                  <div
+                    className={`${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}
+                    style={{
+                      padding: '12px 16px',
+                      maxWidth: msg.role === 'user' ? 480 : 640,
+                      ...(isSpeakingThis ? {
+                        border: '1px solid rgba(0,243,255,0.6)',
+                        boxShadow: '0 0 22px rgba(0,243,255,0.25), inset 0 0 10px rgba(0,243,255,0.05)',
+                        transition: 'all 0.4s ease',
+                      } : {}),
+                    }}
+                  >
+                    
+                    {msg.file && (
+                      <div style={{ marginBottom: 8 }}>
+                        {msg.file.type.startsWith('image/') && msg.file.url ? (
+                          <img
+                            src={msg.file.url}
+                            alt={msg.file.name}
+                            style={{ maxWidth: 200, maxHeight: 200, borderRadius: 12, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                          />
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', width: 'fit-content', fontSize: 13 }}>
+                            📎 {msg.file.name}
+                          </div>
+                        )}
                       </div>
                     )}
+                    
+                    {msg.content && !msg.content.startsWith('{"action"') && (
+                      <div
+                        style={{ color: '#d1d5db', lineHeight: 1.6 }}
+                        dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }}
+                      />
+                    )}
+                    
+                    {/* Action Buttons inside messages */}
+                    {msg.role === 'assistant' && msg.content.includes('⚠️ **Confirm DM**') && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: 'white', border: '1px solid rgba(0,243,255,0.3)' }} onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>📤 Send DM</button>
+                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Cancel</button>
+                      </div>
+                    )}
+                    {msg.role === 'assistant' && msg.content.includes('⚠️ I need an AI Agent') && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: 'white', border: '1px solid rgba(0,243,255,0.3)' }} onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>✅ Approve</button>
+                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Reject</button>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 10, color: '#6b7280', marginTop: 8, justifyContent: 'flex-end', gap: 4 }}>
+                      <span suppressHydrationWarning>{formatTime(msg.timestamp)}</span>
+                      {msg.role === 'user' && <i className="fa-solid fa-check-double" style={{ color: '#3b82f6' }}></i>}
+                    </div>
+                  </div>
+                </div>
+                  );
+                });
+              })()}
+
+
+              {/* Loading indicator */}
+              {showThinking && (
+                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', overflow: 'hidden', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 15%' }} src="/jenny-image/avatar.jpg" />
+                  </div>
+                  <div className="chat-bubble-processing" style={{ padding: '12px 16px', maxWidth: 400, display: 'flex', alignItems: 'center', gap: 12 }}>
+                     <span style={{ color: '#d1d5db', fontSize: 14 }}>{processingTaskLabel || 'Jenny is thinking...'}</span>
+                     <div style={{ display: 'flex', gap: 4 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite' }}></div>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.2s' }}></div>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.4s' }}></div>
+                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Posting Status Card */}
+              {(isPosting || postResults) && (
+                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, fontSize: 20 }}>🌸</div>
+                  <div className="chat-bubble-ai" style={{ padding: '12px 16px', maxWidth: 580, borderLeft: '2px solid #b026ff' }}>
+                     <PostingCard results={postResults || undefined} isPosting={isPosting} />
+                  </div>
+                </div>
+              )}
+
+              {/* DM Contact Picker */}
+              {dmMode === 'picking' && dmContacts.length > 0 && (
+                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🌸</div>
+                  <div className="chat-bubble-ai" style={{ padding: '12px 16px', maxWidth: 580, borderLeft: '2px solid #00f3ff' }}>
+                     <DmContactPicker
+                        contacts={dmContacts}
+                        imageFile={lastImageRef.current}
+                        onSelect={(contact, message) => {
+                          setDmMode('idle');
+                          executeDm(contact, message, lastImageRef.current);
+                        }}
+                        onCancel={() => {
+                          setDmMode('idle');
+                          addMessage({ role: 'assistant', content: 'DM cancelled. What else can I help you with?', timestamp: Date.now() });
+                        }}
+                     />
+                  </div>
+                </div>
+              )}
+
+              {/* DM Fetching Spinner */}
+              {dmMode === 'fetching' && (
+                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🌸</div>
+                  <div className="chat-bubble-processing" style={{ padding: '12px 16px', maxWidth: 400, display: 'flex', alignItems: 'center', gap: 12 }}>
+                     <span style={{ color: '#d1d5db', fontSize: 14 }}>Opening Instagram and reading your inbox...</span>
+                     <div className="agent-spinner" />
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            {/* ── BOTTOM BAR: Quick Prompts + Input ── */}
+            <div style={{ padding: '0 24px 20px 24px', flexShrink: 0 }}>
+              
+              {/* Quick Prompts */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                {(uploadedFile
+                  ? [
+                    { icon: '🔍', label: 'Analyze and generate captions' },
+                    { icon: '📸', label: 'Post to Instagram feed' },
+                    { icon: '✨', label: 'Add to story' },
+                  ]
+                  : [
+                    { icon: '📸', label: 'Post this image to Instagram' },
+                    { icon: '#️⃣', label: 'Suggest hashtags for tech' },
+                    { icon: '🐦', label: 'Write a viral tweet' },
+                  ]
+                ).map(({ icon, label }) => (
+                  <button
+                    key={label}
+                    onClick={() => sendMessage(label)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '7px 14px', borderRadius: 9999,
+                      fontSize: 12, color: '#d1d5db',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      cursor: 'pointer', transition: 'all 0.2s',
+                      whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(0,243,255,0.4)')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                  >
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Input Bar */}
+              <div style={{ position: 'relative' }}>
+                {/* File Upload Preview */}
+                {uploadedFile && (
+                  <div className="glass-panel" style={{ position: 'absolute', bottom: '100%', marginBottom: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 12, width: 'fit-content' }}>
+                    {uploadedFile.type.startsWith('image/') ? (
+                      <img src={URL.createObjectURL(uploadedFile)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: 40, height: 40, borderRadius: 8, background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📎</div>
+                    )}
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: 'white' }}>{uploadedFile.name}</div>
+                      <div style={{ fontSize: 10, color: '#9ca3af' }}>{(uploadedFile.size / 1024).toFixed(0)}KB</div>
+                    </div>
+                    <button onClick={() => setUploadedFile(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18 }}>×</button>
                   </div>
                 )}
-                {msg.content && !msg.content.startsWith('{"action"') && (
-                  <div
-                    className="chat-bubble"
-                    style={msg.role === 'user' ? { borderRadius: '18px 4px 18px 18px' } : { borderRadius: '4px 18px 18px 18px' }}
-                    dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }}
+
+                {/* Glow Effect */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,243,255,0.15), transparent, rgba(176,38,255,0.15))', borderRadius: 16, filter: 'blur(8px)', pointerEvents: 'none' }}></div>
+                
+                {/* Main Input Bar */}
+                <div className="glass-panel" style={{ position: 'relative', background: '#0d0e15', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '8px 8px 8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  
+                  {/* Attachment Button */}
+                  <button
+                    title="Attach file"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', position: 'relative' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#00f3ff'; e.currentTarget.style.borderColor = 'rgba(0,243,255,0.3)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  >
+                    <i className="fa-solid fa-paperclip" style={{ fontSize: 13 }}></i>
+                    {uploadedFile && (
+                      <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, background: '#6366f1', borderRadius: '50%' }}></span>
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*,application/pdf,.doc,.docx,.txt,.csv,.xlsx,.xls,.ppt,.pptx"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setUploadedFile(f);
+                      e.target.value = '';
+                    }}
                   />
-                )}
-                {/* DM Confirm Buttons */}
-                {msg.role === 'assistant' && msg.content.includes('⚠️ **Confirm DM**') && (
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                    <button className="btn btn-primary btn-sm" onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>📤 Send DM</button>
-                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Cancel</button>
-                  </div>
-                )}
-                {/* Agent Spawn Buttons */}
-                {msg.role === 'assistant' && msg.content.includes('⚠️ I need an AI Agent') && (
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                    <button className="btn btn-primary btn-sm" onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>✅ Approve Agent</button>
-                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Reject</button>
-                  </div>
-                )}
-                <div className="chat-timestamp" suppressHydrationWarning>{formatTime(msg.timestamp)}</div>
-              </div>
-            </div>
-          ))}
 
-          {/* Loading indicator */}
-          {showThinking && (
-            <div className="chat-message assistant">
-              <div className="chat-avatar assistant">🌸</div>
-              <div className="chat-bubble" style={{ borderRadius: '4px 18px 18px 18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="typing-indicator">
-                    <div className="typing-dot" /><div className="typing-dot" /><div className="typing-dot" />
+                  {/* Text Input */}
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <MentionDropdown state={mention} onSelect={applyMention} />
+                    <input 
+                      ref={textareaRef as any}
+                      style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', color: 'white', fontSize: 14, padding: '4px 0' }}
+                      placeholder={uploadedFile ? 'Add a note or just press Send...' : 'Ask Jenny anything...'}
+                      type="text"
+                      value={input}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const pos = e.target.selectionStart || 0;
+                        setInput(val);
+                        
+                        const textBeforeCursor = val.slice(0, pos);
+                        const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+                        
+                        if (mention.appContext && mention.loadingContacts) return;
+                        if (mention.appContext && !mention.loadingContacts && mention.visible) {
+                          const query = textBeforeCursor.slice(mention.startIndex + 1).toLowerCase();
+                          const userSuggestions = dmContacts.map(c => ({ id: `user-${c.username}`, name: c.username, type: 'user' as const, avatar: c.avatarUrl }));
+                          const filtered = userSuggestions.filter(item => item.name.toLowerCase().includes(query)).slice(0, 8);
+                          setMention(prev => ({ ...prev, query, filtered, selectedIndex: 0 }));
+                          return;
+                        }
+
+                        if (lastAtSymbol !== -1 && (lastAtSymbol === 0 || /\s/.test(textBeforeCursor[lastAtSymbol - 1]))) {
+                          const query = textBeforeCursor.slice(lastAtSymbol + 1).toLowerCase();
+                          const appSuggestions = PLATFORMS.map(p => ({ id: p.id, name: p.id, type: 'app' as const, icon: p.icon }));
+                          const userSuggestions = dmContacts.length > 0 ? dmContacts.map(c => ({ id: `user-${c.username}`, name: c.username, type: 'user' as const, avatar: c.avatarUrl })) : [];
+                          const all = [...appSuggestions, ...userSuggestions];
+                          const filtered = all.filter(item => item.name.toLowerCase().includes(query)).slice(0, 8);
+                          
+                          if (filtered.length > 0) {
+                            setMention({ visible: true, query, startIndex: lastAtSymbol, selectedIndex: 0, filtered, appContext: undefined, loadingContacts: false });
+                          } else {
+                            setMention(prev => ({ ...prev, visible: false, appContext: undefined }));
+                          }
+                        } else {
+                          setMention(prev => ({ ...prev, visible: false, appContext: undefined, loadingContacts: false }));
+                        }
+                      }}
+                      onKeyDown={handleKeyDown}
+                    />
                   </div>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {processingTaskLabel ? 'Jenny is still working…' : uploadedFile ? 'Analyzing image…' : 'Jenny is thinking…'}
-                  </span>
+
+                  {/* Mic Button */}
+                  <button
+                    title={isListening ? 'Stop listening' : 'Start voice input'}
+                    onClick={() => {
+                      const next = !isListening;
+                      setIsListening(next);
+                      setListening(next);
+                    }}
+                    style={{ width: 34, height: 34, borderRadius: 10, background: isListening ? 'rgba(0,243,255,0.1)' : 'transparent', border: 'none', color: isListening ? '#00f3ff' : '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }}
+                  >
+                    <i className={`fa-solid fa-microphone ${isListening ? 'animate-pulse' : ''}`} style={{ fontSize: 14 }}></i>
+                  </button>
+
+                  {/* Send Button */}
+                  <button
+                    title="Send message"
+                    onClick={() => sendMessage()}
+                    disabled={loading || isPosting || (!input.trim() && !uploadedFile)}
+                    style={{ width: 38, height: 38, borderRadius: 12, background: loading || isPosting ? '#1d4ed8' : '#2563eb', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: loading || isPosting ? 'not-allowed' : 'pointer', flexShrink: 0, boxShadow: '0 0 15px rgba(37,99,235,0.4)', transition: 'all 0.2s', opacity: (!input.trim() && !uploadedFile) ? 0.5 : 1 }}
+                  >
+                    {loading || isPosting
+                      ? <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: 14 }}></i>
+                      : <i className="fa-solid fa-paper-plane" style={{ fontSize: 14 }}></i>}
+                  </button>
                 </div>
               </div>
             </div>
-          )}
+          </section>
+          
+          {/* Execution Flow right sidebar */}
+          <ExecutionFlow activeMode={activeMode} />
 
-          {/* Posting status */}
-          {(isPosting || postResults) && (
-            <div className="chat-message assistant" style={{ alignItems: 'flex-start' }}>
-              <div className="chat-avatar assistant">🌸</div>
-              <div style={{ flex: 1, maxWidth: '85%' }}>
-                <PostingCard results={postResults || undefined} isPosting={isPosting} />
-              </div>
-            </div>
-          )}
-
-          {/* DM Contact Picker */}
-          {dmMode === 'picking' && dmContacts.length > 0 && (
-            <div className="chat-message assistant" style={{ alignItems: 'flex-start' }}>
-              <div className="chat-avatar assistant">🌸</div>
-              <div style={{ flex: 1, maxWidth: '90%' }}>
-                <DmContactPicker
-                  contacts={dmContacts}
-                  imageFile={lastImageRef.current}
-                  onSelect={(contact, message) => {
-                    setDmMode('idle');
-                    executeDm(contact, message, lastImageRef.current);
-                  }}
-                  onCancel={() => {
-                    setDmMode('idle');
-                    addMessage({
-                      role: 'assistant',
-                      content: 'DM cancelled. What else can I help you with?',
-                      timestamp: Date.now(),
-                    });
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* DM fetching spinner */}
-          {dmMode === 'fetching' && (
-            <div className="chat-message assistant">
-              <div className="chat-avatar assistant">🌸</div>
-              <div className="agent-card posting-card" style={{ maxWidth: 340 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div className="agent-spinner" />
-                  <div style={{ fontSize: 13 }}>Opening Instagram and reading your inbox…</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
         </div>
-
-        {/* Input Area */}
-        <div className="chat-input-area">
-          {uploadedFile && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
-              padding: '10px 14px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)',
-              border: '1px solid rgba(108,99,255,0.3)',
-            }}>
-              {uploadedFile.type.startsWith('image/') ? (
-                <img
-                  src={URL.createObjectURL(uploadedFile)}
-                  alt=""
-                  style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
-                />
-              ) : (
-                <div style={{
-                  width: 40, height: 40, borderRadius: 8, background: 'var(--bg-surface)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 20, flexShrink: 0, border: '1px solid var(--border-subtle)'
-                }}>
-                  {uploadedFile.type.startsWith('video/') ? '🎬' :
-                   uploadedFile.type.includes('pdf') ? '📄' :
-                   uploadedFile.type.includes('word') || uploadedFile.name.endsWith('.doc') || uploadedFile.name.endsWith('.docx') ? '📝' :
-                   '📎'}
-                </div>
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {uploadedFile.type.startsWith('image/') ? '🖼️' :
-                   uploadedFile.type.startsWith('video/') ? '🎬' : '📎'} {uploadedFile.name}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--accent-light)', marginTop: 1 }}>
-                  Ready to send · {(uploadedFile.size / 1024).toFixed(0)}KB
-                </div>
-              </div>
-              <button onClick={() => setUploadedFile(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, padding: 4 }}>×</button>
-            </div>
-          )}
-
-          {/* Quick prompts */}
-          <div className="chat-actions" style={{ marginBottom: 10, flexWrap: 'nowrap', overflowX: 'auto' }}>
-            {QUICK_PROMPTS.map(p => (
-              <button key={p} className="chat-pill" onClick={() => sendMessage(p)} style={{ flexShrink: 0 }}>
-                {p}
-              </button>
-            ))}
-          </div>
-
-          <div className="chat-input-row">
-            <button
-              className="btn btn-ghost btn-icon"
-              onClick={() => fileInputRef.current?.click()}
-              title="Upload image"
-              style={{ position: 'relative' }}
-            >
-              📎
-              {uploadedFile && (
-                <span style={{
-                  position: 'absolute', top: -4, right: -4, width: 10, height: 10,
-                  background: 'var(--accent)', borderRadius: '50%',
-                }} />
-              )}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*,application/pdf,.doc,.docx,.txt,.csv,.xlsx,.xls,.ppt,.pptx"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) setUploadedFile(f);
-                e.target.value = '';
-              }}
-            />
-
-            <div style={{ flex: 1, position: 'relative' }}>
-              <MentionDropdown state={mention} onSelect={applyMention} />
-              <textarea
-                ref={textareaRef}
-                className="chat-input"
-                placeholder={uploadedFile ? 'Add a note or just press Send to analyze…' : 'Upload an image or type a command…'}
-                value={input}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const pos = e.target.selectionStart || 0;
-                  setInput(val);
-                  
-                  // Auto-resize
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-
-                  // Mention detection logic
-                  const textBeforeCursor = val.slice(0, pos);
-                  const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
-                  
-                  if (mention.appContext && mention.loadingContacts) {
-                    // Do nothing, wait for load
-                    return;
-                  }
-
-                  if (mention.appContext && !mention.loadingContacts && mention.visible) {
-                    // We are in user-selection mode after picking an app
-                    const query = textBeforeCursor.slice(mention.startIndex + 1).toLowerCase();
-                    const userSuggestions = dmContacts.map(c => ({ 
-                      id: `user-${c.username}`, 
-                      name: c.username, 
-                      type: 'user' as const, 
-                      avatar: c.avatarUrl 
-                    }));
-                    const filtered = userSuggestions.filter(item => item.name.toLowerCase().includes(query)).slice(0, 8);
-                    setMention(prev => ({ ...prev, query, filtered, selectedIndex: 0 }));
-                    return;
-                  }
-
-                  if (lastAtSymbol !== -1 && (lastAtSymbol === 0 || /\s/.test(textBeforeCursor[lastAtSymbol - 1]))) {
-                    const query = textBeforeCursor.slice(lastAtSymbol + 1).toLowerCase();
-                    
-                    // Initial view: Only suggest Apps (or users if dmContacts is populated, but Apps take priority)
-                    const appSuggestions = PLATFORMS.map(p => ({ id: p.id, name: p.id, type: 'app' as const, icon: p.icon }));
-                    // Only show users directly if no app context and they haven't explicitly triggered an app
-                    const userSuggestions = dmContacts.length > 0 ? dmContacts.map(c => ({ 
-                      id: `user-${c.username}`, 
-                      name: c.username, 
-                      type: 'user' as const, 
-                      avatar: c.avatarUrl 
-                    })) : [];
-                    
-                    const all = [...appSuggestions, ...userSuggestions];
-                    const filtered = all.filter(item => item.name.toLowerCase().includes(query)).slice(0, 8);
-                    
-                    if (filtered.length > 0) {
-                      setMention({
-                        visible: true,
-                        query,
-                        startIndex: lastAtSymbol,
-                        selectedIndex: 0,
-                        filtered,
-                        appContext: undefined,
-                        loadingContacts: false
-                      });
-                    } else {
-                      setMention(prev => ({ ...prev, visible: false, appContext: undefined }));
-                    }
-                  } else {
-                    setMention(prev => ({ ...prev, visible: false, appContext: undefined, loadingContacts: false }));
-                  }
-                }}
-                onKeyDown={handleKeyDown}
-                rows={1}
-              />
-            </div>
-
-            <button
-              className="btn btn-primary btn-icon"
-              onClick={() => sendMessage()}
-              disabled={loading || isPosting || (!input.trim() && !uploadedFile)}
-              style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0 }}
-            >
-              {loading || isPosting
-                ? <span className="spinner" style={{ width: 16, height: 16 }} />
-                : '↑'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }

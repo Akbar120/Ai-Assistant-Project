@@ -7,10 +7,11 @@ export interface DMArgs {
   username: string;
   platform: 'instagram' | 'twitter' | 'discord';
   message: string;
+  threadUrl?: string; // NEW optional field bypasses profile search
 }
 
-export async function execute_instagram_dm(args: DMArgs): Promise<{ success: boolean; reply: string; error?: string }> {
-  const { username, platform, message } = args;
+export async function execute_instagram_dm(args: DMArgs, agentId?: string): Promise<{ success: boolean; reply: string; error?: string }> {
+  const { username, platform, message, threadUrl } = args;
   const cleanUsername = username.replace(/^@/, '').trim();
 
   try {
@@ -30,6 +31,7 @@ export async function execute_instagram_dm(args: DMArgs): Promise<{ success: boo
       const fd = new FormData();
       fd.append('username', cleanUsername);
       fd.append('message', message);
+      if (threadUrl) fd.append('threadUrl', threadUrl);
       body = fd;
     }
 

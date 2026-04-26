@@ -17,6 +17,9 @@ export default function VoiceWidgetPage() {
   const reconnectRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastSentRef = useRef<string>('');
+  const lastSentTimeRef = useRef<number>(0);
+  const livePreviewRef = useRef<string>(''); // For showing partial text in UI
 
   // ── Send text to Python TTS via WebSocket ───────────────────────────────
   // Strips all markdown and unicode surrogates before sending to Python.
@@ -77,15 +80,46 @@ export default function VoiceWidgetPage() {
   };
 
   // ── Main UI Bridge — sends transcript to main window ────────────────────
-  const handleTranscript = useCallback(async (text: string) => {
-    setLastTranscript(text);
+  const handleTranscript = useCallback(async (text: string, isFinal: boolean) => {
+    if (!isFinal) {
+      // Partial: just update the live preview display, don't process yet
+      livePreviewRef.current = text;
+      setLastTranscript(text);
+      return;
+    }
+    
+    // Final: deduplicate and submit
+    const now = Date.now();
+    const normalized = text.toLowerCase().replace(/[.,!?;]$/, '').trim();
+    if (normalized === lastSentRef.current && (now - lastSentTimeRef.current) < 5000) {
+      console.log('[VoiceWidget] Duplicate final transcript ignored:', text);
+      return;
+    }
+    lastSentRef.current = normalized;
+    lastSentTimeRef.current = now;
+
+    // Fix for Whisper "stuttering" (e.g. "nahin aise hi. nahin aise hi.")
+    let cleanText = text.trim();
+    const sentences = cleanText.split(/[.!?]\s+/).filter(Boolean);
+    if (sentences.length === 2) {
+      const s1 = sentences[0].toLowerCase().replace(/[^\w\s]/g, '').trim();
+      const s2 = sentences[1].toLowerCase().replace(/[^\w\s]/g, '').trim();
+      if (s1 === s2 && s1.length > 5) {
+        console.log('[VoiceWidget] Deduplicated stuttering transcript:', cleanText);
+        cleanText = sentences[0] + (text.match(/[.!?]$/) ? text.slice(-1) : '.');
+      }
+    }
+
+    setLastTranscript(cleanText);
+    livePreviewRef.current = '';
     
     // 1. Enter thinking state locally for UX feedback
     setLastReply('...');
     setStatus('THINKING');
     
-    // 2. Push to main chat for processing (Main chat now owns AI and TTS)
-    pushToMainChat(text, ''); // Passing empty aiText since main chat handles it
+    // 2. Push to main chat for processing
+    console.log('[VoiceWidget] FINAL transcript submitted to chat:', cleanText);
+    pushToMainChat(cleanText, '');
   }, []);
 
   // ── Sync with Main Chat — receives results back via IPC ──────────────────
@@ -131,13 +165,21 @@ export default function VoiceWidgetPage() {
               getIpc()?.send('stop-tts');
             }
 
+          } else if (data.type === 'transcript_partial') {
+            // Live preview ONLY — do NOT submit to chat yet
+            handleTranscript(data.text, false);
+
+          } else if (data.type === 'transcript_final') {
+            // Full sentence received — NOW submit and stop TTS
+            handleTranscript(data.text, true);
+            getIpc()?.send('stop-tts');
+
           } else if (data.type === 'transcript') {
-            handleTranscript(data.text);
-            // Also stop speech when a transcript is finalizing
+            // Legacy fallback (e.g., wake word on first activation)
+            handleTranscript(data.text, true);
             getIpc()?.send('stop-tts');
 
           } else if (data.type === 'tts_status') {
-            // Python signals playing/idle — just mirror it in UI state
             setTtsStatus(data.status);
 
           } else if (data.type === 'mic_volume') {

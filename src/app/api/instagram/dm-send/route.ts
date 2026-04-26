@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const username = formData.get('username') as string;
   const message = formData.get('message') as string;
+  const threadUrl = formData.get('threadUrl') as string | null;
   const file = formData.get('file') as File | null;
 
   if (!username) return NextResponse.json({ success: false, error: 'Username is required' }, { status: 400 });
@@ -41,8 +42,8 @@ export async function POST(req: NextRequest) {
 
   // Use headless: false so OS file picker & clipboard APIs work reliably
   const browser = await chromium.launch({
-    headless: false,
-    args: ['--disable-blink-features=AutomationControlled', '--start-minimized'],
+    headless: true,
+    args: ['--disable-blink-features=AutomationControlled'],
   });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
@@ -57,44 +58,41 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    await page.goto('https://www.instagram.com/direct/inbox/', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(4000);
-    await screenshot('01-inbox');
+    if (threadUrl && threadUrl.startsWith('https://www.instagram.com/direct/t/')) {
+      // ✔️ BEST PATH: Navigate directly to the known thread URL
+      console.log(`[IG DM Sender] Navigating directly to thread: ${threadUrl}`);
+      await page.goto(threadUrl, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(4000);
+      await screenshot('01-thread-direct');
 
-    // Dismiss any popups
-    for (const t of ['Not Now', 'Not now', 'Cancel']) {
-      const btn = page.getByRole('button', { name: t, exact: true });
-      if (await btn.count() > 0) await btn.first().click().catch(() => {});
-    }
-
-    // Navigate to the conversation thread
-    const threadBtn = page.locator('div[role="button"]').filter({ hasText: username }).first();
-    if (await threadBtn.count() > 0) {
-      await threadBtn.click();
+      // Dismiss any popups
+      for (const t of ['Not Now', 'Not now', 'Cancel']) {
+        const btn = page.getByRole('button', { name: t, exact: true });
+        if (await btn.count() > 0) await btn.first().click().catch(() => {});
+      }
     } else {
-      const newMsgBtn = page.locator('svg[aria-label="New message"]').locator('..');
-      if (await newMsgBtn.count() > 0) {
-        await newMsgBtn.first().click();
-        await page.waitForTimeout(1500);
-        const searchInput = page.locator('input[placeholder="Search..."], input[name="queryBox"]').first();
-        await searchInput.waitFor({ state: 'visible', timeout: 5000 });
-        await searchInput.fill(username);
-        await page.waitForTimeout(2000);
-        const exactMatch = page.locator(`[role="option"], [role="listitem"]`).filter({ hasText: username }).first();
-        const anyResult = page.locator(`[role="option"], [role="listitem"]`).first();
-        if (await exactMatch.count() > 0) await exactMatch.click();
-        else if (await anyResult.count() > 0) await anyResult.click();
-        await page.waitForTimeout(1000);
-        for (const label of ['Next', 'Chat', 'Open', 'Send']) {
-          const btn = page.getByRole('button', { name: label });
-          if (await btn.count() > 0) { await btn.first().click(); break; }
-        }
+      // ⚠️ FALLBACK PATH: No thread URL available — open inbox and search
+      console.log(`[IG DM Sender] No threadUrl. Falling back to inbox search for @${username}.`);
+      await page.goto('https://www.instagram.com/direct/inbox/', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(4000);
+      await screenshot('01-inbox');
+
+      for (const t of ['Not Now', 'Not now', 'Cancel']) {
+        const btn = page.getByRole('button', { name: t, exact: true });
+        if (await btn.count() > 0) await btn.first().click().catch(() => {});
+      }
+
+      // Find the thread by display name in the inbox sidebar
+      const inboxThread = page.locator(`div[role="button"]:has-text("${username}")`).first();
+      if (await inboxThread.count() > 0) {
+        await inboxThread.click();
+        await page.waitForTimeout(3000);
       } else {
-        throw new Error(`Could not find the conversation with @${username} in your inbox.`);
+        throw new Error(`Thread for @${username} not found in inbox. Re-fetch DMs first to get a thread URL.`);
       }
     }
 
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
     await screenshot('02-thread-open');
 
     // ── ATTACH FILE FIRST (before typing message) ──────────────────────────────
@@ -338,6 +336,14 @@ export async function POST(req: NextRequest) {
     fs.writeFileSync(INSTAGRAM_COOKIES_FILE, JSON.stringify(updatedCookies, null, 2));
     await browser.close();
     if (savedFilePath) fs.unlink(savedFilePath, () => {});
+
+    if (!sent) {
+      return NextResponse.json({ success: false, error: `Could not find or click the Send button for @${username}. Check sessions/ig-dm-05-before-send.png` });
+    }
+
+    if (!textboxEmpty) {
+      return NextResponse.json({ success: false, error: `Message typed but textbox did not clear — message may NOT have been sent to @${username}. Check sessions/ig-dm-06-sent.png` });
+    }
 
     return NextResponse.json({ success: true, message: `Message sent to @${username}` });
   } catch (err) {

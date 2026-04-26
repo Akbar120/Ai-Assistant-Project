@@ -52,17 +52,31 @@ export async function GET(req: NextRequest) {
 
   const stream = new ReadableStream({
     start(controller) {
+      let closed = false;
+
+      const safeClose = () => {
+        if (!closed) {
+          closed = true;
+          try { controller.close(); } catch { /* already closed */ }
+        }
+      };
+
+      const safeError = (err: Error) => {
+        if (!closed) {
+          closed = true;
+          try { controller.error(err); } catch { /* already closed */ }
+        }
+      };
+
       ttsProcess.stdout.on('data', (chunk) => {
-        controller.enqueue(chunk);
+        if (!closed) {
+          try { controller.enqueue(chunk); } catch { safeClose(); }
+        }
       });
 
-      ttsProcess.on('close', (code) => {
-        controller.close();
-      });
-
-      ttsProcess.on('error', (err) => {
-        controller.error(err);
-      });
+      ttsProcess.stdout.on('end', safeClose);
+      ttsProcess.on('close', safeClose);
+      ttsProcess.on('error', safeError);
     },
     cancel() {
       ttsProcess.kill();

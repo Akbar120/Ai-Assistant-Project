@@ -6,43 +6,1894 @@
       "role": "Proactive Instagram DM Handler and Tone Analyst",
       "goal": "Continuously monitor Instagram DMs every minute, analyze sender's tone, and suggest 3 contextually appropriate replies.",
       "folder": "dm-monitor-pro-2",
-      "status": "running",
-      "mode": "executing",
+      "status": "paused",
+      "mode": "thinking",
       "logs": [
         {
-          "id": "log_1776351396349",
+          "id": "log_1776985838921",
           "type": "SYSTEM",
-          "timestamp": "8:26:36 PM",
+          "timestamp": "4:40:38 AM",
           "title": "Logs Cleared",
           "message": "Previous logs cleared by user."
+        },
+        {
+          "id": "log_1776985842424",
+          "type": "SYSTEM",
+          "timestamp": "4:40:42 AM",
+          "title": "Agent Resumed",
+          "message": "Agent resumed by user."
+        },
+        {
+          "id": "log_1776985910985_v79t",
+          "type": "TOOL",
+          "timestamp": "4:41:50 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776985930813_wy2r",
+          "type": "RESULT",
+          "timestamp": "4:42:10 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986074466_7r80",
+          "type": "TOOL",
+          "timestamp": "4:44:34 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986108205_4c7d",
+          "type": "RESULT",
+          "timestamp": "4:45:08 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986132748_zvv7",
+          "type": "TOOL",
+          "timestamp": "4:45:32 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986164113_wugc",
+          "type": "RESULT",
+          "timestamp": "4:46:04 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986185540_cj28",
+          "type": "TOOL",
+          "timestamp": "4:46:25 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986216545_i725",
+          "type": "RESULT",
+          "timestamp": "4:46:56 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986243636_jnmb",
+          "type": "ERROR",
+          "timestamp": "4:47:23 AM",
+          "message": "LLM returned invalid JSON. Sleeping."
+        },
+        {
+          "id": "log_1776986383037_woqy",
+          "type": "TOOL",
+          "timestamp": "4:49:43 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986416488_tabf",
+          "type": "RESULT",
+          "timestamp": "4:50:16 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986437998_z9tp",
+          "type": "TOOL",
+          "timestamp": "4:50:37 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986471972_bmfa",
+          "type": "RESULT",
+          "timestamp": "4:51:11 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986494565_yabx",
+          "type": "TOOL",
+          "timestamp": "4:51:34 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986526700_0ma1",
+          "type": "RESULT",
+          "timestamp": "4:52:06 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986548209_cvrb",
+          "type": "TOOL",
+          "timestamp": "4:52:28 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986578766_dpbn",
+          "type": "RESULT",
+          "timestamp": "4:52:58 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986601705_u53o",
+          "type": "TOOL",
+          "timestamp": "4:53:21 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986635364_o3ep",
+          "type": "RESULT",
+          "timestamp": "4:53:55 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776986655806_mpax",
+          "type": "TOOL",
+          "timestamp": "4:54:15 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986655807_ehcu",
+          "type": "ERROR",
+          "timestamp": "4:54:15 AM",
+          "message": "Critical cycle error: Could not parse module '[project]/src/brain/engine.ts'\n\nReturn statement is not allowed here"
+        },
+        {
+          "id": "log_1776986796233_mwy6",
+          "type": "TOOL",
+          "timestamp": "4:56:36 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776986826906_atb4",
+          "type": "RESULT",
+          "timestamp": "4:57:06 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Unread\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776987173572_w8ev",
+          "type": "BOOT",
+          "timestamp": "5:02:53 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776987173586_vxq0",
+          "type": "ACTION",
+          "timestamp": "5:02:53 AM",
+          "title": "Notify Sent",
+          "message": "Sent approval notification for @Shaikh Akbar Ali"
+        },
+        {
+          "id": "log_1776987646144_g990",
+          "type": "SYSTEM",
+          "timestamp": "5:10:46 AM",
+          "title": "Abandon Resume",
+          "message": "⏭️ Notification abandoned by user. Agent resumed."
+        },
+        {
+          "id": "log_1776987679932_yl8a",
+          "type": "TOOL",
+          "timestamp": "5:11:19 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776987713273_omk3",
+          "type": "RESULT",
+          "timestamp": "5:11:53 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/Shaikh%20Akbar%20Ali\nMessage: \"Media/Attachment\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776987714282_at5f",
+          "type": "ACTION",
+          "timestamp": "5:11:54 AM",
+          "title": "Notify Sent",
+          "message": "Sent approval notification for @Shaikh Akbar Ali"
+        },
+        {
+          "id": "log_1776988035049_bdli",
+          "type": "SYSTEM",
+          "timestamp": "5:17:15 AM",
+          "title": "Abandon Resume",
+          "message": "⏭️ Notification abandoned by user. Agent resumed."
+        },
+        {
+          "id": "log_1776988068925_0z5r",
+          "type": "TOOL",
+          "timestamp": "5:17:48 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776988100775_jcpf",
+          "type": "RESULT",
+          "timestamp": "5:18:20 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **1** unread message(s):\n\nName: @Shaikh Akbar Ali\nThread URL: https://www.instagram.com/direct/t/17846994759606307/\nMessage: \"Whoa\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776988101787_lvu2",
+          "type": "ACTION",
+          "timestamp": "5:18:21 AM",
+          "title": "Notify Sent",
+          "message": "Sent approval notification for @Shaikh Akbar Ali"
+        },
+        {
+          "id": "log_1776988114016_bk9v",
+          "type": "SYSTEM",
+          "timestamp": "5:18:34 AM",
+          "title": "Approval Resume",
+          "message": "✅ Reply approved via UI: \"Got it, thanks!\". Mode set to EXECUTING. Agent resumed."
+        },
+        {
+          "id": "log_1776988273027_d7cx",
+          "type": "TOOL",
+          "timestamp": "5:21:13 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776988292493_a2bz",
+          "type": "RESULT",
+          "timestamp": "5:21:32 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776988431381_mtff",
+          "type": "TOOL",
+          "timestamp": "5:23:51 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776988451080_opch",
+          "type": "RESULT",
+          "timestamp": "5:24:11 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776988590571_f3l2",
+          "type": "TOOL",
+          "timestamp": "5:26:30 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776988611308_35vk",
+          "type": "RESULT",
+          "timestamp": "5:26:51 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776988749914_qulb",
+          "type": "TOOL",
+          "timestamp": "5:29:09 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776988749942_mvdg",
+          "type": "RESULT",
+          "timestamp": "5:29:09 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON",
+          "metadata": {
+            "success": false
+          }
+        },
+        {
+          "id": "log_1776988770162_cw3r",
+          "type": "TOOL",
+          "timestamp": "5:29:30 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776988770179_mh45",
+          "type": "RESULT",
+          "timestamp": "5:29:30 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON",
+          "metadata": {
+            "success": false
+          }
+        },
+        {
+          "id": "log_1776988793524_prta",
+          "type": "BOOT",
+          "timestamp": "5:29:53 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776988817238_zfy1",
+          "type": "TOOL",
+          "timestamp": "5:30:17 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776988840521_yp25",
+          "type": "RESULT",
+          "timestamp": "5:30:40 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776988981897_2g6u",
+          "type": "TOOL",
+          "timestamp": "5:33:01 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776989005096_ddya",
+          "type": "RESULT",
+          "timestamp": "5:33:25 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776989146581_gtto",
+          "type": "TOOL",
+          "timestamp": "5:35:46 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776989169706_o0zc",
+          "type": "RESULT",
+          "timestamp": "5:36:09 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776989318612_4c0b",
+          "type": "TOOL",
+          "timestamp": "5:38:38 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776989340203_5okb",
+          "type": "RESULT",
+          "timestamp": "5:39:00 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776989479046_pcvj",
+          "type": "TOOL",
+          "timestamp": "5:41:19 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776989499940_lt1q",
+          "type": "RESULT",
+          "timestamp": "5:41:39 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776989659342_mu37",
+          "type": "TOOL",
+          "timestamp": "5:44:19 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776989679249_7awj",
+          "type": "RESULT",
+          "timestamp": "5:44:39 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776989820895_av5y",
+          "type": "TOOL",
+          "timestamp": "5:47:00 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776989840966_wwrj",
+          "type": "RESULT",
+          "timestamp": "5:47:20 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776989980849_rz0a",
+          "type": "TOOL",
+          "timestamp": "5:49:40 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776990004396_xfma",
+          "type": "RESULT",
+          "timestamp": "5:50:04 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776990145102_5tw1",
+          "type": "TOOL",
+          "timestamp": "5:52:25 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776990168263_re9c",
+          "type": "RESULT",
+          "timestamp": "5:52:48 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776990307714_7bgl",
+          "type": "TOOL",
+          "timestamp": "5:55:07 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776990327450_jhkj",
+          "type": "RESULT",
+          "timestamp": "5:55:27 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776990464817_4pcx",
+          "type": "TOOL",
+          "timestamp": "5:57:44 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776990484401_1pck",
+          "type": "RESULT",
+          "timestamp": "5:58:04 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776990622810_1ef2",
+          "type": "TOOL",
+          "timestamp": "6:00:22 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776990644067_68tv",
+          "type": "RESULT",
+          "timestamp": "6:00:44 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776990783461_l996",
+          "type": "TOOL",
+          "timestamp": "6:03:03 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776990806797_6k90",
+          "type": "RESULT",
+          "timestamp": "6:03:26 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776990943932_r0pe",
+          "type": "TOOL",
+          "timestamp": "6:05:43 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776990967015_0owl",
+          "type": "RESULT",
+          "timestamp": "6:06:07 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776991107001_u0qd",
+          "type": "TOOL",
+          "timestamp": "6:08:27 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776991107023_3740",
+          "type": "RESULT",
+          "timestamp": "6:08:27 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON",
+          "metadata": {
+            "success": false
+          }
+        },
+        {
+          "id": "log_1776991143499_w83n",
+          "type": "BOOT",
+          "timestamp": "6:09:03 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776991162784_lt8l",
+          "type": "TOOL",
+          "timestamp": "6:09:22 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776991187849_mcr4",
+          "type": "RESULT",
+          "timestamp": "6:09:47 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776991304652_88d4",
+          "type": "BOOT",
+          "timestamp": "6:11:44 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776991324633_vsce",
+          "type": "TOOL",
+          "timestamp": "6:12:04 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776991345398_93js",
+          "type": "RESULT",
+          "timestamp": "6:12:25 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776991485560_je6w",
+          "type": "TOOL",
+          "timestamp": "6:14:45 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776991507468_1u2u",
+          "type": "RESULT",
+          "timestamp": "6:15:07 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776995533323_0mxa",
+          "type": "BOOT",
+          "timestamp": "7:22:13 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776995553308_vlb5",
+          "type": "TOOL",
+          "timestamp": "7:22:33 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776995577737_3ucv",
+          "type": "RESULT",
+          "timestamp": "7:22:57 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776995716109_v3zc",
+          "type": "TOOL",
+          "timestamp": "7:25:16 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776995735745_vokl",
+          "type": "RESULT",
+          "timestamp": "7:25:35 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776995907780_vkp8",
+          "type": "TOOL",
+          "timestamp": "7:28:27 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776995930823_041j",
+          "type": "RESULT",
+          "timestamp": "7:28:50 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776996097374_7e78",
+          "type": "TOOL",
+          "timestamp": "7:31:37 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776996117178_jvvv",
+          "type": "RESULT",
+          "timestamp": "7:31:57 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776996259395_7kvl",
+          "type": "TOOL",
+          "timestamp": "7:34:19 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776996282328_htft",
+          "type": "RESULT",
+          "timestamp": "7:34:42 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776996422275_s7nh",
+          "type": "TOOL",
+          "timestamp": "7:37:02 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776996441943_tbg8",
+          "type": "RESULT",
+          "timestamp": "7:37:21 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776998129785_l2px",
+          "type": "BOOT",
+          "timestamp": "8:05:29 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776998155899_9ocx",
+          "type": "TOOL",
+          "timestamp": "8:05:55 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776998180933_le40",
+          "type": "RESULT",
+          "timestamp": "8:06:20 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776998266543_iju5",
+          "type": "BOOT",
+          "timestamp": "8:07:46 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776998286586_2swg",
+          "type": "TOOL",
+          "timestamp": "8:08:06 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776998306582_8p02",
+          "type": "RESULT",
+          "timestamp": "8:08:26 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776998455658_6isx",
+          "type": "TOOL",
+          "timestamp": "8:10:55 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776998479650_47kr",
+          "type": "RESULT",
+          "timestamp": "8:11:19 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776998617853_ozec",
+          "type": "TOOL",
+          "timestamp": "8:13:37 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776998638090_lhd5",
+          "type": "RESULT",
+          "timestamp": "8:13:58 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776998778215_tvlw",
+          "type": "TOOL",
+          "timestamp": "8:16:18 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776998801703_3km8",
+          "type": "RESULT",
+          "timestamp": "8:16:41 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776998940365_p3b7",
+          "type": "TOOL",
+          "timestamp": "8:19:00 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776998962465_x4uk",
+          "type": "RESULT",
+          "timestamp": "8:19:22 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776999102419_p4j8",
+          "type": "TOOL",
+          "timestamp": "8:21:42 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776999123488_rj03",
+          "type": "RESULT",
+          "timestamp": "8:22:03 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776999142765_z3rg",
+          "type": "BOOT",
+          "timestamp": "8:22:22 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776999159917_gjpo",
+          "type": "TOOL",
+          "timestamp": "8:22:39 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776999180078_o6ay",
+          "type": "RESULT",
+          "timestamp": "8:23:00 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776999291947_e2fe",
+          "type": "BOOT",
+          "timestamp": "8:24:51 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776999312650_7mio",
+          "type": "TOOL",
+          "timestamp": "8:25:12 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776999334648_e27l",
+          "type": "RESULT",
+          "timestamp": "8:25:34 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776999355543_ayz0",
+          "type": "BOOT",
+          "timestamp": "8:25:55 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776999374128_atqw",
+          "type": "TOOL",
+          "timestamp": "8:26:14 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776999394594_azbt",
+          "type": "RESULT",
+          "timestamp": "8:26:34 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776999534337_6601",
+          "type": "TOOL",
+          "timestamp": "8:28:54 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776999554671_asij",
+          "type": "RESULT",
+          "timestamp": "8:29:14 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776999696608_zlxz",
+          "type": "TOOL",
+          "timestamp": "8:31:36 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776999720117_icre",
+          "type": "RESULT",
+          "timestamp": "8:32:00 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1776999827132_0sho",
+          "type": "BOOT",
+          "timestamp": "8:33:47 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1776999848577_cmke",
+          "type": "TOOL",
+          "timestamp": "8:34:08 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1776999870170_n05e",
+          "type": "RESULT",
+          "timestamp": "8:34:30 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777000012494_rtoy",
+          "type": "TOOL",
+          "timestamp": "8:36:52 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777000035821_meuf",
+          "type": "RESULT",
+          "timestamp": "8:37:15 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777000173628_cuf0",
+          "type": "TOOL",
+          "timestamp": "8:39:33 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777000193728_qcaw",
+          "type": "RESULT",
+          "timestamp": "8:39:53 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777006043290_ynql",
+          "type": "BOOT",
+          "timestamp": "10:17:23 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1777006075284_ug88",
+          "type": "TOOL",
+          "timestamp": "10:17:55 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777006096302_nmf4",
+          "type": "RESULT",
+          "timestamp": "10:18:16 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777006238470_j2m5",
+          "type": "TOOL",
+          "timestamp": "10:20:38 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777006258603_bg1j",
+          "type": "RESULT",
+          "timestamp": "10:20:58 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777006397764_xh4g",
+          "type": "TOOL",
+          "timestamp": "10:23:17 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777006421164_5exs",
+          "type": "RESULT",
+          "timestamp": "10:23:41 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777012933424_g105",
+          "type": "BOOT",
+          "timestamp": "12:12:13 PM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1777012962039_u4mo",
+          "type": "TOOL",
+          "timestamp": "12:12:42 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777012986162_hztm",
+          "type": "RESULT",
+          "timestamp": "12:13:06 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777013126328_jbjy",
+          "type": "TOOL",
+          "timestamp": "12:15:26 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777013146487_iv86",
+          "type": "RESULT",
+          "timestamp": "12:15:46 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777013283707_xmfi",
+          "type": "TOOL",
+          "timestamp": "12:18:03 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777013306942_x95s",
+          "type": "RESULT",
+          "timestamp": "12:18:26 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777013472106_ux8r",
+          "type": "BOOT",
+          "timestamp": "12:21:12 PM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1777013491288_7bmf",
+          "type": "TOOL",
+          "timestamp": "12:21:31 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777013511426_s6kk",
+          "type": "RESULT",
+          "timestamp": "12:21:51 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777013649603_oxb7",
+          "type": "TOOL",
+          "timestamp": "12:24:09 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777013672704_6zdr",
+          "type": "RESULT",
+          "timestamp": "12:24:32 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777013814499_mjmc",
+          "type": "TOOL",
+          "timestamp": "12:26:54 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777013834944_k5ol",
+          "type": "RESULT",
+          "timestamp": "12:27:14 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777013975676_dyq9",
+          "type": "TOOL",
+          "timestamp": "12:29:35 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777013999215_4nlc",
+          "type": "RESULT",
+          "timestamp": "12:29:59 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777014138208_gmrx",
+          "type": "TOOL",
+          "timestamp": "12:32:18 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777014158262_ktzn",
+          "type": "RESULT",
+          "timestamp": "12:32:38 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777014296082_s2w6",
+          "type": "TOOL",
+          "timestamp": "12:34:56 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777014316424_cet8",
+          "type": "RESULT",
+          "timestamp": "12:35:16 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777014468856_3nl0",
+          "type": "BOOT",
+          "timestamp": "12:37:48 PM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1777014489479_vsg7",
+          "type": "TOOL",
+          "timestamp": "12:38:09 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777014511702_714i",
+          "type": "RESULT",
+          "timestamp": "12:38:31 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777014650576_psrs",
+          "type": "TOOL",
+          "timestamp": "12:40:50 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777014670341_1a8u",
+          "type": "RESULT",
+          "timestamp": "12:41:10 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777014809514_kisl",
+          "type": "TOOL",
+          "timestamp": "12:43:29 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777014829181_k6xg",
+          "type": "RESULT",
+          "timestamp": "12:43:49 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777014969424_5fmy",
+          "type": "TOOL",
+          "timestamp": "12:46:09 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777014989855_ckh9",
+          "type": "RESULT",
+          "timestamp": "12:46:29 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777015130018_7ufu",
+          "type": "TOOL",
+          "timestamp": "12:48:50 PM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777015150376_es7i",
+          "type": "RESULT",
+          "timestamp": "12:49:10 PM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: Inbox check completed. No new unread messages found.",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777169231777_8lox",
+          "type": "BOOT",
+          "timestamp": "7:37:11 AM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1777169231903_b476",
+          "type": "ERROR",
+          "timestamp": "7:37:11 AM",
+          "message": "Critical cycle error: fetch failed"
+        },
+        {
+          "id": "log_1777169351915_82n2",
+          "type": "ERROR",
+          "timestamp": "7:39:11 AM",
+          "message": "Critical cycle error: fetch failed"
+        },
+        {
+          "id": "log_1777169494759_uec8",
+          "type": "TOOL",
+          "timestamp": "7:41:34 AM",
+          "title": "instagram_dm_reader",
+          "message": "Executing tool: instagram_dm_reader",
+          "metadata": {
+            "args": {
+              "channel": "instagram"
+            }
+          }
+        },
+        {
+          "id": "log_1777169546564_6xur",
+          "type": "RESULT",
+          "timestamp": "7:42:26 AM",
+          "title": "instagram_dm_reader",
+          "message": "Tool result: 📬 Found **3** unread message(s):\n\nName: @RAHIL🔱\nThread URL: https://www.instagram.com/direct/t/17845846664580354/\nMessage: \"3 new messages\"\n\nName: @sohail\nThread URL: https://www.instagram.com/direct/t/105807637482757/\nMessage: \"sohail sent an attachment.\"\n\nName: @Sahil Shaikh Sahil Shaikh\nThread URL: https://www.instagram.com/direct/t/17843577482955369/\nMessage: \"Sahil sent an attachment.\"",
+          "metadata": {
+            "success": true
+          }
+        },
+        {
+          "id": "log_1777169547585_nwkf",
+          "type": "ACTION",
+          "timestamp": "7:42:27 AM",
+          "title": "Notify Sent",
+          "message": "Sent approval notification for @RAHIL🔱"
+        },
+        {
+          "id": "log_1777188314082_pf79",
+          "type": "SYSTEM",
+          "timestamp": "12:55:14 PM",
+          "title": "Abandon Resume",
+          "message": "⏭️ Notification abandoned by user. Agent resumed."
+        },
+        {
+          "id": "log_1777191168853_v8l2",
+          "type": "BOOT",
+          "timestamp": "1:42:48 PM",
+          "message": "Agent classified as: APPROVAL_BASED"
+        },
+        {
+          "id": "log_1777191169879_r6wr",
+          "type": "ACTION",
+          "timestamp": "1:42:49 PM",
+          "title": "Notify Sent",
+          "message": "Sent approval notification for @sohail"
         }
       ],
       "maxTokens": 4096,
       "useRotorQuant": true,
       "skills": [
         "system_awareness",
-        "agent_followup"
+        "agent_followup",
+        "self_improvement"
       ],
       "tools": [
         "instagram_dm_reader",
         "instagram_dm_sender",
-        "agent_notify"
+        "agent_notify",
+        "read_file",
+        "write_file",
+        "define_tool",
+        "improvement_propose",
+        "reasoning_engine"
       ],
       "isAutonomous": true,
-      "pollingInterval": 60000,
+      "pollingInterval": 120000,
       "sessionMemory": [],
       "allowedTools": [
         "instagram_dm_reader",
         "instagram_dm_sender",
-        "agent_notify"
+        "agent_notify",
+        "read_file",
+        "write_file",
+        "define_tool",
+        "improvement_propose",
+        "reasoning_engine"
       ],
-      "cycleCount": 19,
+      "cycleCount": 755,
       "lastCycle": {
-        "think": "Initiating Cycle #17: Executing Step 2 of the SOP (Polling Action) to fetch new, unread DMs for analysis.",
+        "think": "Forcing notification for @sohail due to pending queue item.",
         "action": "tool_call: instagram_dm_reader",
         "tool": "instagram_dm_reader",
-        "result": "📬 Found **1** unread message(s):\n\n@shaikh_akbar_ali: \"Yo bro\""
-      }
+        "result": "Notification sent for @sohail. Waiting for approval."
+      },
+      "agentType": "approval_based",
+      "waitingApproval": true,
+      "approvedReplyText": "Got it, thanks!",
+      "approvedAt": "2026-04-23T23:48:34.015Z"
     },
     "system_jenny": {
       "id": "system_jenny",
@@ -77,7 +1928,8 @@
         "advanced_coding",
         "agent_deletion",
         "agent_followup",
-        "dataset_creator"
+        "dataset_creator",
+        "self_improvement"
       ],
       "tools": [
         "get_tasks",
@@ -123,7 +1975,12 @@
         "tts",
         "instagram_feed_reader",
         "edit",
-        "apply_patch"
+        "apply_patch",
+        "read_file",
+        "write_file",
+        "define_tool",
+        "improvement_propose",
+        "reasoning_engine"
       ],
       "isAutonomous": true,
       "pollingInterval": 300000,
@@ -168,7 +2025,12 @@
         "tts",
         "instagram_feed_reader",
         "edit",
-        "apply_patch"
+        "apply_patch",
+        "read_file",
+        "write_file",
+        "define_tool",
+        "improvement_propose",
+        "reasoning_engine"
       ]
     }
   },

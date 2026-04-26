@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { OllamaMessage, DEFAULT_MODEL } from '@/lib/ollama';
+import { OllamaMessage } from '@/lib/ollama';
 import { enrichInput } from '@/services/inputEnrichment';
 import { orchestrate } from '@/brain/orchestrator';
 import { handleConversation } from '@/routers/conversation.router';
@@ -94,26 +94,93 @@ export async function POST(req: NextRequest) {
     const pending = getPendingAction();
     const cleanMsg = message.trim().toLowerCase();
 
-    const confirmKeywords = ['yes', 'sahi hai', 'hian', 'kar de', 'bhejde', 'theek hai', 'go ahead', 'okay', 'bhej do'];
-    const cancelKeywords = ['no', 'nhi', 'cancel', 'reset', 'abort', 'rehne do', 'nahin', 'naa'];
+    const confirmKeywords = ['yes', 'sahi hai', 'hian', 'kar de', 'kardo', 'bhejde', 'theek hai', 'go ahead', 'okay', 'bhej do', 'approve', 'approved', 'confirm'];
+    const cancelKeywords = ['no', 'nhi', 'cancel', 'reset', 'abort', 'rehne do', 'nahin', 'naa', 'deny', 'decline'];
+    const retryKeywords = ['retry', 'again', 'wapas', 'try', 'ek aur baar'];
+    const explainKeywords = ['explain', 'kyu', 'what', 'kya', 'batao', 'reason', 'detail', 'details'];
 
-    const isConfirm = confirmKeywords.some(k => cleanMsg.includes(k));
-    const isCancel = cancelKeywords.some(k => cleanMsg.includes(k));
+    // Only trigger if message is short (simple confirmation) or strictly matches a keyword
+    const isShort = cleanMsg.length < 50;
+    const isConfirm = isShort && confirmKeywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(cleanMsg));
+    const isCancel = isShort && cancelKeywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(cleanMsg));
+    const isRetry = isShort && retryKeywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(cleanMsg));
+    const isExplain = isShort && explainKeywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(cleanMsg));
 
-    if (pending && (isConfirm || isCancel)) {
-      const sendResponse = (reply: string, action: string, result?: any) => {
+    if (pending && (isConfirm || isCancel || isRetry || isExplain)) {
+      const sendResponse = async (reply: string, action: string, result?: any) => {
+        const safeReply = reply || 'Main sun rahi hoon dY~S';
+        
+        // Final Persistence before sending response
+        if (assistantMessageId) {
+          await appendChatMessages([{ 
+            id: assistantMessageId, 
+            role: 'assistant' as const, 
+            content: safeReply, 
+            source: 'chat' as const, 
+            timestamp: Date.now() 
+          }]);
+        }
+
         if (isVoice) {
           const encoder = new TextEncoder();
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'full', reply, action, ...(result ? { result } : {}) })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'full', reply: safeReply, action, ...(result ? { result } : {}) })}\n\n`));
               controller.close();
             }
           });
           return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' } });
         }
-        return NextResponse.json({ reply, action, ...(result ? { result } : {}) });
+        return NextResponse.json({ reply: safeReply, action, ...(result ? { result } : {}) });
       };
+
+      if (pending.type === 'error_recovery') {
+        if (isCancel) {
+          clearPendingAction();
+          return sendResponse('✅ Task cancelled.', 'conversation');
+        } else if (isExplain || (!isRetry && !isConfirm)) {
+          try {
+            const { ollamaChat } = await import('@/lib/ollama');
+            const { getActiveModel } = await import('@/lib/ollama-server');
+            const expRaw = await ollamaChat({
+              messages: [
+                { role: 'system', content: 'You are Jenny. A tool just failed. Explain the error naturally to the user in 1-2 short sentences and ask if they want you to retry or fix it.' },
+                { role: 'user', content: `Tool: ${pending.data.tool}\nArgs: ${JSON.stringify(pending.data.args)}\nError: ${pending.data.error}` }
+              ],
+              model: getActiveModel(),
+              temperature: 0.3
+            });
+            return sendResponse(expRaw.trim(), 'conversation');
+          } catch (e) {
+            return sendResponse(`⚠️ Error Details:\n${pending.data.error}\n\nReply RETRY to try again.`, 'conversation');
+          }
+        } else if (isRetry || isConfirm) {
+          clearPendingAction();
+          try {
+            const { runToolWithoutGuard } = await import('@/brain/tools');
+            const toolArgs = { ...pending.data.args };
+            
+            // SAFETY: If taskId is missing (e.g. from a failed initial attempt), create one now
+            if (!toolArgs.task_id) {
+               const { createTask } = await import('@/brain/taskService');
+               const newTask = await createTask({
+                  type: 'execution',
+                  name: `RETRY: ${pending.data.tool}`,
+                  source: 'orchestrator',
+                  status: 'processing'
+               });
+               toolArgs.task_id = newTask.id;
+            }
+
+            const res = await runToolWithoutGuard(pending.data.tool, toolArgs, 'orchestrator', 'system_jenny');
+            return await sendResponse(res.reply || `✨ Retry successful!`, 'tool_call', res);
+          } catch (err: any) {
+            const errMsg = err.message || 'Unknown error';
+            setPendingAction({ type: 'error_recovery', data: { tool: pending.data.tool, args: pending.data.args, error: errMsg } });
+            return sendResponse(`❌ Retry failed: ${errMsg}\n\nShould I explain the error or retry again?`, 'conversation');
+          }
+        }
+      }
 
       if (isConfirm) {
         if (pending.type === 'dm') {
@@ -128,9 +195,9 @@ export async function POST(req: NextRequest) {
             const deleteTask = await createTask({ type: 'execution', name: `Delete Agent: ${agentId}`, source: 'orchestrator', status: 'processing' });
             const { runTool } = await import('@/brain/tools');
             const res = await runTool('manage_agent', { operation: 'delete_agent', target_agent: agentId, task_id: deleteTask.id });
-            return sendResponse(res.reply || `✅ Agent "${agentId}" deleted successfully.`, 'tool_call', res);
+            return await sendResponse(res.reply || `o" Agent "${agentId}" deleted successfully.`, 'tool_call', res);
           } catch (err: any) {
-            return sendResponse(`❌ Deletion failed: ${err.message}`, 'conversation');
+            return await sendResponse(`?O Deletion failed: ${err.message}`, 'conversation');
           }
         } else if (pending.type === 'agent_spawn') {
           // ── Create tracking task for agent spawn ──────────────────
@@ -160,10 +227,55 @@ export async function POST(req: NextRequest) {
           const agent = updateAgent(pending.data.agentName, pending.data.role, pending.data.goal);
           clearPendingAction();
           return sendResponse(`✅ Agent **${agent?.name}** metadata has been updated! restarting background tasks...`, 'edit_agent');
+        } else if (pending.type === 'tool') {
+          // ── Execute an approved background tool ──────────────────
+          clearPendingAction();
+          
+          // NEW FEATURE: Sync chat approval with Notifications Sidebar
+          try {
+             const { loadFromFile, markNotificationRead } = await import('@/brain/state');
+             const allNotifs = loadFromFile();
+             // Mark the most recent approval_needed notification for THIS agent as read/handled
+             const targetNotif = allNotifs.slice().reverse().find(n => n.requiresApproval && !n.read);
+             if (targetNotif) {
+                markNotificationRead(targetNotif.id);
+             }
+          } catch (e) {
+            console.error('[Route] Notification sync failed:', e);
+          }
+
+          try {
+            const { runToolWithoutGuard } = await import('@/brain/tools');
+            const res = await runToolWithoutGuard(pending.data.tool, pending.data.args, 'orchestrator', 'system_jenny');
+            
+            // Phase 3: Natural explanation for successful tool execution
+            let successExplanation = res.reply || `✨ Approved and executed **${pending.data.tool}** successfully.`;
+            try {
+               const { ollamaChat } = await import('@/lib/ollama');
+               const { getActiveModel } = await import('@/lib/ollama-server');
+               const expRaw = await ollamaChat({
+                  messages: [
+                     { role: 'system', content: 'You are Jenny. You just successfully executed a tool after user approval. Explain what you did and the result naturally in 1-2 short sentences. Do not ask questions unless necessary.' },
+                     { role: 'user', content: `Tool: ${pending.data.tool}\nResult: ${JSON.stringify(res).substring(0, 500)}` }
+                  ],
+                  model: getActiveModel(),
+                  temperature: 0.3
+               });
+               if (expRaw && expRaw.trim()) {
+                  successExplanation = expRaw.trim();
+               }
+            } catch (e) {}
+
+            return await sendResponse(successExplanation, 'tool_call', res);
+          } catch (err: any) {
+            const errMsg = err.message || 'Unknown error';
+            setPendingAction({ type: 'error_recovery', data: { tool: pending.data.tool, args: pending.data.args, error: errMsg } });
+            return await sendResponse(`⚠️ I encountered an error while executing the task.\n\nShould I attempt to retry, or would you like me to explain the error?`, 'conversation');
+          }
         }
       } else {
         clearPendingAction();
-        return sendResponse('Theek hai, cancel kar diya. 😊', 'conversation');
+        return sendResponse('⏭️ Action cancelled. What would you like to do next?', 'conversation');
       }
     }
 
@@ -189,13 +301,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Inject Agent Notifications into context ───────────────────────────
-    if (agentNotifications?.length > 0) {
-      const combinedNote = agentNotifications.map(n => `[AGENT ${n.agentName}]: ${n.text}`).join('\n');
-      userContent = `⚠️ NOTIFICATION FROM YOUR AGENTS:\n${combinedNote}\n\nUser Message: ${userContent}`;
-      clearAgentNotifications(); // Wipe them after presenting to user
-    }
-
     // ── Stream Mode Configuration ──────────────────────────────────────────
     if (isVoice) {
       const encoder = new TextEncoder();
@@ -213,10 +318,13 @@ export async function POST(req: NextRequest) {
               images?.length > 0 ? images : undefined,
               (sentence) => {
                 send({ type: 'sentence', text: sentence });
+              },
+              (mode) => {
+                send({ type: 'mode', mode });
               }
             );
 
-            const { action, data, reply, taskId } = result;
+            const { action, data, reply, taskId, mode } = result;
             if (taskId) {
                chatTaskId = taskId;
             }
@@ -230,15 +338,22 @@ export async function POST(req: NextRequest) {
                  finalReply = `⚠️ **Confirm DM**\n\nTo: @${args.username}\nApp: ${args.platform}\nMessage: "${args.message}"\n\nReply YES to confirm.`;
                  setPendingAction({ type: 'dm', data: args });
               } else {
+                 const toolArgs = { ...args, task_id: taskId || args.task_id };
                  try {
-                   // Always pass task_id from the orchestrator — security guard requires it
-                   const toolArgs = { ...args, task_id: taskId || args.task_id };
-                   const res = await runTool(tool, toolArgs);
-                   finalReply = res.reply || `✅ Tool '${tool}' executed.`;
+                   // Always pass task_id from the orchestrator - security guard requires it
+                   const res = await runTool(tool, toolArgs, 'orchestrator', 'system_jenny');
+                   finalReply = res.reply || `✨ Tool '${tool}' executed.`;
                    actionResult = (res as any).data;
                  } catch (toolErr: any) {
-                   finalReply = `❌ Tool execution failed: ${toolErr.message}`;
-                   console.error(`[Chat API] Tool '${tool}' failed:`, toolErr);
+                   const errMsg = toolErr.message || 'Unknown error';
+                   if (errMsg.includes('PERMISSION_BLOCK') || errMsg.includes('USER_APPROVAL_REQUIRED')) {
+                     const reason = errMsg.replace('[PERMISSION_BLOCK] ', '').replace('USER_APPROVAL_REQUIRED: ', '');
+                     finalReply = `⚠️ **Confirm Tool Execution**\n\nI need your permission to run **${tool}**.\n\n${reason}\n\nReply **YES** to confirm or **NO** to cancel.`;
+                     setPendingAction({ type: 'tool', data: { tool, args: toolArgs } });
+                   } else {
+                     finalReply = `❌ Tool execution failed: ${errMsg}`;
+                   }
+                   console.error(`[Orchestrator] Tool Error (${tool}):`, toolErr);
                  }
               }
             } else if (action === 'create_agent') {
@@ -258,11 +373,21 @@ export async function POST(req: NextRequest) {
               finalReply = `⚠️ I need an AI Agent to handle this complex task.\n\nAgent: **${agentName}**\nGoal: ${agentGoal}\nRole: ${agentRole}${toolList}${skillList}${channelList}\n\nShall I create it? (Reply YES to approve)`;
             }
 
-            const safeReply = finalReply || 'Main sun rahi hoon 😊';
+            const safeReply = (finalReply && typeof finalReply === 'string' && finalReply.trim().length > 0) 
+              ? finalReply 
+              : (reply && typeof reply === 'string' && reply.trim().length > 0)
+                ? reply
+                : 'Theek hai, main ye kar rahi hoon...';
 
-            // Final Persistence
-            if (assistantMessageId) {
-              await appendChatMessages([{ id: assistantMessageId, role: 'assistant' as const, content: safeReply, source: 'chat' as const, timestamp: Date.now() }]);
+            // Persistence handled by sendResponse or here if not using shortcut
+            if (!isConfirm && !isCancel && assistantMessageId) {
+               await appendChatMessages([{ 
+                 id: assistantMessageId, 
+                 role: 'assistant' as const, 
+                 content: safeReply, 
+                 source: 'chat' as const, 
+                 timestamp: Date.now() 
+               }]);
             }
 
             if (chatTaskId) {
@@ -277,9 +402,9 @@ export async function POST(req: NextRequest) {
               type: 'full', 
               reply: safeReply, 
               action: action || 'conversation',
+              mode: mode || 'conversation',
               ...(actionResult ? { result: actionResult } : {})
             });
-
             controller.close();
           } catch (err) {
             send({ type: 'error', message: err instanceof Error ? err.message : 'Stream Error' });
@@ -304,7 +429,7 @@ export async function POST(req: NextRequest) {
       enriched,
       images?.length > 0 ? images : undefined
     );
-    const { action, data, reply, taskId } = result;
+    const { action, data, reply, taskId, mode } = result;
     if (taskId) {
       chatTaskId = taskId;
     }
@@ -317,9 +442,20 @@ export async function POST(req: NextRequest) {
          finalReply = `⚠️ **Confirm DM**\n\nTo: @${args.username}\nApp: ${args.platform}\nMessage: "${args.message}"\n\nReply YES to confirm.`;
          setPendingAction({ type: 'dm', data: args });
       } else {
-         const res = await runTool(tool, args);
-         finalReply = res.reply;
-         actionResult = (res as any).data;
+         try {
+           const res = await runTool(tool, args, 'orchestrator', 'system_jenny');
+           finalReply = res.reply;
+           actionResult = (res as any).data;
+         } catch (toolErr: any) {
+           const errMsg = toolErr.message || 'Unknown error';
+           if (errMsg.includes('PERMISSION_BLOCK') || errMsg.includes('USER_APPROVAL_REQUIRED')) {
+             const reason = errMsg.replace('[PERMISSION_BLOCK] ', '').replace('USER_APPROVAL_REQUIRED: ', '');
+             finalReply = `⚠️ **Confirm Tool Execution**\n\nI need your permission to run **${tool}**.\n\n${reason}\n\nReply **YES** to confirm or **NO** to cancel.`;
+             setPendingAction({ type: 'tool', data: { tool, args } });
+           } else {
+             finalReply = `❌ Tool execution failed: ${errMsg}`;
+           }
+         }
       }
     } else if (action === 'create_agent') {
       const args = (data as any).args || data;
@@ -360,6 +496,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       reply: finalReply,
       action: action || 'conversation',
+      mode: mode || 'conversation',
       ...(actionResult ? { result: actionResult } : {}),
     });
 

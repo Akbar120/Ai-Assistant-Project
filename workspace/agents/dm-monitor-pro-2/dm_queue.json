@@ -1,0 +1,29 @@
+{
+  "queue": [
+    {
+      "username": "RAHIL🔱",
+      "threadUrl": "https://www.instagram.com/direct/t/17845846664580354/",
+      "messages": [
+        "3 new messages"
+      ],
+      "status": "abandoned"
+    },
+    {
+      "username": "sohail",
+      "threadUrl": "https://www.instagram.com/direct/t/105807637482757/",
+      "messages": [
+        "sohail sent an attachment."
+      ],
+      "status": "notifying"
+    },
+    {
+      "username": "Sahil Shaikh Sahil Shaikh",
+      "threadUrl": "https://www.instagram.com/direct/t/17843577482955369/",
+      "messages": [
+        "Sahil sent an attachment."
+      ],
+      "status": "pending"
+    }
+  ],
+  "savedAt": "2026-04-26T02:12:26.565Z"
+}

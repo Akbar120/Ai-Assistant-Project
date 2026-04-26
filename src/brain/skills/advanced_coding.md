@@ -20,10 +20,11 @@ Creates, writes, and installs new tools and skills for the OpenClaw system on co
 
 ## 🚨 Execution Enforcement
 
-**RULE**: If user says "create", "build", "write", "make", or "engineer" a tool/skill:
-→ MUST call `code_executor`
-→ MUST NOT output a plan or explanation instead of executing
-→ MUST NOT say "I would create..." — actually create it
+**RULE**: IF user says "create" or "build":
+- MUST call `code_executor`
+- MUST NOT explain only
+- MUST produce real output
+- NEVER simulate completion without execution
 
 **RULE**: After `code_executor` succeeds:
 → Report: name, file path, and purpose
