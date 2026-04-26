@@ -24,6 +24,7 @@ export async function runTool(tool: string, args: any, requester: string = 'orch
 
 export async function runToolWithoutGuard(tool: string, args: any, requester: string = 'orchestrator', agentId?: string): Promise<any> {
   const taskId = args.task_id;
+  const deferTaskCompletion = args.defer_task_completion === true;
 
   // Agents can call tools without a task_id — they run in the background autonomously
   if (requester !== 'agent') {
@@ -145,10 +146,10 @@ export async function runToolWithoutGuard(tool: string, args: any, requester: st
     if (taskId && requester !== 'agent') {
       if (result.success) {
         await appendLog(taskId, `✅ Tool ${tool} completed successfully.`);
-        await updateTask(taskId, { status: 'completed', progress: 100 });
+        if (!deferTaskCompletion) await updateTask(taskId, { status: 'completed', progress: 100 });
       } else {
         await appendLog(taskId, `❌ Tool ${tool} failed: ${result.error || result.reply}`);
-        await updateTask(taskId, { status: 'failed', progress: 100 });
+        if (!deferTaskCompletion) await updateTask(taskId, { status: 'failed', progress: 100 });
       }
     }
 
@@ -156,7 +157,7 @@ export async function runToolWithoutGuard(tool: string, args: any, requester: st
   } catch (err: any) {
     if (taskId && requester !== 'agent') {
       await appendLog(taskId, `🧨 Critical failure in tool ${tool}: ${err.message}`);
-      await updateTask(taskId, { status: 'failed', progress: 100 });
+      if (!deferTaskCompletion) await updateTask(taskId, { status: 'failed', progress: 100 });
     }
     throw err;
   }

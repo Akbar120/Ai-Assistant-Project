@@ -27,7 +27,7 @@ const TOOL_SIGNALS: Array<{ tool: string; signals: string[] }> = [
   { tool: 'instagram_fetch',   signals: ['fetch dms', 'read dms', 'check dms', 'instagram fetch', 'instagram_fetch', 'instagram_dm_reader'] },
   { tool: 'search_web',        signals: ['search the web', 'search for', 'google', 'web search', 'search_web', 'look up'] },
   { tool: 'code_executor',     signals: ['create skill', 'write skill', 'create tool', 'write file', 'create file', 'code_executor', 'write code', 'write_file'] },
-  { tool: 'manage_agent',      signals: ['create agent', 'spawn agent', 'start agent', 'manage_agent', 'new agent'] },
+  { tool: 'manage_agent',      signals: ['create agent', 'spawn agent', 'start agent', 'manage_agent', 'new agent', 'delete skill', 'remove skill', 'delete_skill'] },
   { tool: 'caption_manager',   signals: ['generate caption', 'write caption', 'caption_manager', 'caption for'] },
   { tool: 'get_skills',        signals: ['list skills', 'show skills', 'what skills', 'get_skills'] },
   { tool: 'get_agents',        signals: ['list agents', 'show agents', 'what agents', 'get_agents'] },
@@ -133,16 +133,61 @@ function extractCodeExecutorArgs(plan: string): Record<string, any> {
   };
 }
 
-function extractManageAgentArgs(plan: string): Record<string, any> {
-  const nameMatch = plan.match(/(?:agent name|named?|called?)[:\s]+["']?([a-zA-Z_\s]+?)["']?(?:\n|,|\.)/i);
+function extractSkillDeletionName(plan: string, history: OllamaMessage[]): string | undefined {
+  const context = `${plan}\n${history.slice(-6).map(m => m.content).join('\n')}`;
+  const patterns = [
+    /skill(?:\s+module)?\s+(?:named|called|name(?:d)?\s+is)?\s*['"`]?([a-zA-Z0-9_-]+)['"`]?/i,
+    /(?:delete|remove)\s+(?:the\s+)?skill\s+['"`]?([a-zA-Z0-9_-]+)['"`]?/i,
+    /['"`]([a-zA-Z0-9_-]+)['"`]/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = context.match(pattern);
+    if (match?.[1] && !/^skill$/i.test(match[1])) {
+      return match[1].trim();
+    }
+  }
+
+  return undefined;
+}
+
+function extractManageAgentArgs(plan: string, history: OllamaMessage[]): Record<string, any> {
+  if (/\b(delete|remove)\b/i.test(plan) && /\bskill\b/i.test(plan)) {
+    return {
+      operation: 'delete_skill',
+      skill_id: extractSkillDeletionName(plan, history),
+    };
+  }
+
+  const nameMatch = plan.match(/(?:agent name|named?|called?)[:\s]+["']?([a-zA-Z0-9_\-\s]+?)["']?(?:\n|,|\.)/i);
   const goalMatch = plan.match(/(?:goal|objective|purpose|task)[:\s]+(.+?)(?:\n|$)/i);
   const roleMatch = plan.match(/(?:role|type)[:\s]+(.+?)(?:\n|$)/i);
+  const toolsMatch = plan.match(/(?:tools|tools required|assigned tools|agent tools)[:\s]+(.+?)(?:\n\n|permissions required|skills|$)/i);
+  const skillsMatch = plan.match(/(?:skills|skills used|assigned skills|agent skills)[:\s]+(.+?)(?:\n\n|tools|permissions required|$)/i);
+
+  const parseList = (value?: string): string[] => {
+    if (!value) return [];
+    return value
+      .split(/[,\n]/)
+      .map(item => item.replace(/^[-*\d.\s]+/, '').replace(/`/g, '').trim())
+      .map(item => item.split(/\s+(?:->|—|-)\s+/)[0].trim())
+      .filter(Boolean);
+  };
+
+  const agentName = nameMatch ? nameMatch[1].trim() : 'New Agent';
+  const tools = parseList(toolsMatch?.[1]);
+  const skills = parseList(skillsMatch?.[1]).map(s => s.replace(/\.md$/, ''));
 
   return {
     operation: 'create_agent',
-    agentName: nameMatch ? nameMatch[1].trim() : 'New Agent',
+    target_agent: agentName,
+    agentName,
     goal: goalMatch ? goalMatch[1].trim() : plan.slice(0, 100),
     role: roleMatch ? roleMatch[1].trim() : 'Assistant',
+    details: {
+      tools,
+      skills,
+    },
   };
 }
 
@@ -162,7 +207,7 @@ function resolveToolFromPlan(
         case 'instagram_dm':     args = extractInstagramDmArgs(plan, history); break;
         case 'platform_post':    args = extractPlatformPostArgs(plan, history); break;
         case 'code_executor':    args = extractCodeExecutorArgs(plan); break;
-        case 'manage_agent':     args = extractManageAgentArgs(plan); break;
+        case 'manage_agent':     args = extractManageAgentArgs(plan, history); break;
         case 'search_web': {
           const qMatch = plan.match(/(?:search|find|look up)[:\s]+["']?(.+?)["']?(?:\n|$)/i);
           args = { query: qMatch ? qMatch[1].trim() : plan.slice(0, 100) };
@@ -185,6 +230,23 @@ function resolveToolFromPlan(
 }
 
 // ── LLM fallback JSON extractor (validation enforced) ────────────────────────
+function repairToolCall(call: ToolCall, plan: string, history: OllamaMessage[]): ToolCall {
+  if (call.tool !== 'manage_agent') return call;
+
+  const args = call.args && typeof call.args === 'object' ? { ...call.args } : {};
+  const isSkillDeletion = /\b(delete|remove)\b/i.test(plan) && /\bskill\b/i.test(plan);
+
+  if (isSkillDeletion && (!args.operation || /^(delete|remove)$/i.test(String(args.operation)))) {
+    args.operation = 'delete_skill';
+  }
+
+  if (args.operation === 'delete_skill' && !args.skill_id) {
+    args.skill_id = extractSkillDeletionName(plan, history);
+  }
+
+  return { tool: call.tool, args };
+}
+
 async function resolveSequenceViaLLM(
   plan: string,
   history: OllamaMessage[],
@@ -209,6 +271,8 @@ RULES:
 1. Return a JSON array of tool calls in chronological order.
 2. If one step depends on another, include them both.
 3. Be precise with arguments.
+4. For deleting a skill, use {"tool":"manage_agent","args":{"operation":"delete_skill","skill_id":"exact_skill_id"}}.
+5. Never call manage_agent without an operation.
 
 Reply ONLY with this exact JSON format (no text before or after):
 [
@@ -233,7 +297,9 @@ If no tools are needed, reply ONLY with: []`;
     if (!Array.isArray(parsed)) return [];
 
     const validTools = TOOL_SIGNALS.map(t => t.tool);
-    return parsed.filter(call => validTools.includes(call.tool));
+    return parsed
+      .filter(call => validTools.includes(call.tool))
+      .map(call => repairToolCall({ tool: call.tool, args: call.args || {} }, plan, history));
   } catch (err) {
     console.error('[ExecutionEngine] LLM sequence resolution failed:', err);
     return [];
@@ -276,6 +342,8 @@ export async function runExecution(
     sequence = resolveToolFromPlan(approvedPlan, history);
   }
 
+  sequence = sequence.map(call => repairToolCall(call, approvedPlan, history));
+
   if (sequence.length === 0) {
     const errMsg = 'Could not determine a valid tool sequence from the approved plan.';
     if (taskId) await appendLog(taskId, '❌ No tools resolved', 'error', 'orchestrator', 'execute').catch(() => {});
@@ -300,7 +368,7 @@ export async function runExecution(
     }
 
     try {
-      const toolArgs = { ...step.args, task_id: taskId };
+      const toolArgs = { ...step.args, task_id: taskId, defer_task_completion: true };
       const result = await runToolWithoutGuard(step.tool, toolArgs, 'orchestrator', 'system_jenny');
       
       executionResults.push({
@@ -313,6 +381,7 @@ export async function runExecution(
       if (result.success === false) {
         cumulativeSuccess = false;
         if (taskId) await appendLog(taskId, `⚠️ Step ${stepNum} failed: ${result.reply}`, 'warning', 'orchestrator', 'execute');
+        break;
       } else {
         if (taskId) await appendLog(taskId, `✅ Step ${stepNum} succeeded`, 'info', 'orchestrator', 'execute');
       }
@@ -322,6 +391,7 @@ export async function runExecution(
       const errMsg = err.message || 'Unknown error';
       executionResults.push({ tool: step.tool, success: false, reply: `❌ Step ${stepNum} failed: ${errMsg}` });
       if (taskId) await appendLog(taskId, `❌ Step ${stepNum} fatal error: ${errMsg}`, 'error', 'orchestrator', 'execute');
+      break;
     }
   }
 

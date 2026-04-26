@@ -322,7 +322,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   {
     id: 'manage_agent',
     name: 'Manage Agent',
-    description: 'Cross-agent orchestration tool. Operations: assign_tool, unassign_tool, assign_skill, unassign_skill, restart_agent, delete_agent, update_config (pass config_updates object).',
+    description: 'Cross-agent orchestration tool. Operations: assign_tool, unassign_tool, assign_skill, unassign_skill, delete_skill, restart_agent, delete_agent, update_config (pass config_updates object).',
     category: 'Agents',
     badge: 'CORE',
     source: 'brain/tools/manage_agent.ts',

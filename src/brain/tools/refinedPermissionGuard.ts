@@ -77,6 +77,10 @@ const BLOCKED_TOOLS = [
  * Special handling for Jenny (system orchestrator) - she can request blocked tools but needs approval
  */
 export function classifyTool(tool: string, agentId?: string): 'safe' | 'major' | 'blocked' {
+  if (!tool) {
+    console.warn('[PermissionGuard] classifyTool called with undefined/empty tool name');
+    return 'major';
+  }
   const normalizedTool = tool.trim().toLowerCase();
   
   // Special case: Jenny can request blocked tools but needs approval (treated as major)

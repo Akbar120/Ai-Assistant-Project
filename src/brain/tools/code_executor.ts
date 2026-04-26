@@ -176,7 +176,7 @@ The file must include these sections in order:
 ## Triggers
 [keywords and phrases that activate this skill]
 
-## ## 🔐 Tool Access
+## 🔐 Tool Access
 [list of tools this skill uses]
 
 ## Execution Steps

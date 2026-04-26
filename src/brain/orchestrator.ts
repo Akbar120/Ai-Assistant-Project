@@ -29,6 +29,8 @@ import type { EnrichedInput } from '@/services/inputEnrichment';
 import { getAgentStore } from './agentManager';
 import { matchSkills, buildSkillContext, loadAllSkills } from './skillsEngine';
 import { runExecution, detectFakeExecution } from './executionEngine';
+import { ALL_TOOL_IDS, TOOL_MAP } from './toolRegistry';
+import { getRecommendedToolsForUseCase } from './skills/skillManagement';
 import {
   JennyMode,
   getCurrentMode,
@@ -132,7 +134,7 @@ function isFinalAgreement(msg: string): boolean {
   const clean = msg.toLowerCase().trim();
 
   // Long messages are discussion/refinement — not agreements
-  if (clean.split(/\s+/).length > 12) return false;
+  if (clean.split(/\s+/).length > 24) return false;
 
   // Questions are never agreements
   if (clean.includes('?') || /\b(kya|kaise|kyun|how|why|what|explain|batao)\b/i.test(clean)) return false;
@@ -142,14 +144,15 @@ function isFinalAgreement(msg: string): boolean {
 
   // Must match a clear agreement PHRASE
   const AGREEMENT_PHRASES = [
-    'yes this works', 'this is good', "let's do this", 'lets do this',
-    'perfect', 'go ahead', 'proceed', 'we can build this', 'build this',
+    'yes this works', 'yeah this works', 'this works', 'this is good', "let's do this", 'lets do this',
+    'perfect', 'go ahead', 'proceed', 'we can do this', 'we can build this', 'build this',
     'theek hai yeh', 'haan yeh sahi hai', 'bilkul', 'haan proceed',
     'looks good', 'sounds good', 'finalize', 'finalize it', 'finalize this',
     'haan theek hai', 'kar lo', 'yes proceed', 'yes go ahead',
     'i approve', 'approve this', 'approve', 'yes sure', 'haan bilkul',
     'karo proceed', 'start execution', 'theek hai karo', 'carry on',
-    'go for it', 'kar de', 'kardo', 'theek hai kardo'
+    'go for it', 'kar de', 'kardo', 'theek hai kardo', 'lets proceed', "let's proceed",
+    'continue with this', 'move forward', 'this plan is fine'
   ];
 
   if (AGREEMENT_PHRASES.some(phrase => clean.includes(phrase))) return true;
@@ -158,6 +161,44 @@ function isFinalAgreement(msg: string): boolean {
   if (/^(yes|haan|ok|okay|yep|sure|y)$/i.test(clean)) return true;
 
   return false;
+}
+
+function buildToolCatalog(toolIds: string[]): string {
+  if (!toolIds.length) return 'None';
+  return toolIds
+    .map(id => {
+      const tool = TOOL_MAP[id];
+      return tool ? `- ${tool.id}: ${tool.description}` : `- ${id}: registered tool`;
+    })
+    .join('\n');
+}
+
+function buildCapabilityContext(userMessage: string, assignedTools: string[], unassignedTools: string[], assignedSkills: string[]): string {
+  const recs = getRecommendedToolsForUseCase(userMessage);
+  const recommended = [...new Set([...recs.safeTools, ...recs.majorTools])];
+  const assignedRecommended = recommended.filter(t => assignedTools.includes(t));
+  const missingRecommended = recommended.filter(t => !assignedTools.includes(t) && ALL_TOOL_IDS.includes(t));
+  const availableSkillFiles = loadAllSkills().map(s => `${s.file.replace(/\.md$/, '')}: ${s.name}`).join('\n') || 'None';
+
+  return `CAPABILITY MAP
+Skills are knowledge/instructions. Tools are executable actions.
+Jenny may use only ASSIGNED tools during execution. If an unassigned tool is necessary, she must request it in the plan instead of pretending it is available.
+
+ASSIGNED TOOL CATALOG:
+${buildToolCatalog(assignedTools)}
+
+UNASSIGNED TOOL CATALOG:
+${buildToolCatalog(unassignedTools)}
+
+RECOMMENDED TOOLS FOR THIS REQUEST:
+- Assigned now: ${assignedRecommended.join(', ') || 'None'}
+- Should request if needed: ${missingRecommended.join(', ') || 'None'}
+
+ASSIGNED SKILLS:
+${assignedSkills.length ? assignedSkills.map(s => `- ${s}`).join('\n') : 'None'}
+
+INSTALLED SKILL FILES:
+${availableSkillFiles}`;
 }
 
 /** Checks if user wants to abort planning entirely */
@@ -259,6 +300,7 @@ function promptAnalyze(message: string, skillCtx: string, assignedTools: string[
   const agents = Object.values(store.agents).slice(0, 4).map(a => `• ${a.name}: ${a.goal}`).join('\n') || 'None';
   
   const permissionReq = assignedTools.filter(t => TOOLS_REQUIRING_APPROVAL.includes(t));
+  const capabilityContext = buildCapabilityContext(message, assignedTools, unassignedTools, assignedSkills);
 
   return `You are Jenny AI in ANALYZE MODE — DECISIVE TOOL SELECTOR.
 DO NOT EXECUTE. DO NOT OUTPUT JSON.
@@ -271,6 +313,7 @@ Your job is to determine WHICH tool to use. No explanations, no skill references
 🛠️ TOOLS (Actions): ${assignedTools.join(', ') || 'None'}
 📚 SKILLS (Knowledge): ${assignedSkills.join(', ') || 'None'}
 RULE: Skills guide HOW you use Tools. You EXECUTE tools, you APPLY skills.
+${capabilityContext}
 
 ═══════════════════════════════════════════════════════════════════════════════════
 🚨 STRICT RULES
@@ -318,6 +361,7 @@ End with EXACTLY ONE:
 
 function promptInteractivePlanning(userMessage: string, skillCtx: string, conversationSummary: string, assignedTools: string[], unassignedTools: string[], assignedSkills: string[]): string {
   const permissionReq = assignedTools.filter(t => TOOLS_REQUIRING_APPROVAL.includes(t));
+  const capabilityContext = buildCapabilityContext(userMessage, assignedTools, unassignedTools, assignedSkills);
   
   return `You are Jenny AI in PLANNING MODE — COLLABORATIVE THINKING PARTNER.
 DO NOT produce a rigid structured plan yet. DO NOT output JSON.
@@ -330,6 +374,7 @@ Your role right now is to THINK WITH THE USER — explore ideas, ask smart quest
 🛠️ TOOLS: ${assignedTools.join(', ') || 'None'}
 📚 SKILLS: ${assignedSkills.join(', ') || 'None'}
 You can propose using ANY tool from your ASSIGNED list below.
+${capabilityContext}
 
 ═══════════════════════════════════════════════════════════════════════════
 🧠 STAGE 1 — INTERACTIVE PLANNING
@@ -366,13 +411,15 @@ ${skillCtx ? `RELEVANT SKILL KNOWLEDGE (Apply silently):\n${skillCtx}\n` : ''}
 Respond conversationally. Help them think through this.`;
 }
 
-function promptPlanning(pendingAnalysis: string, skillCtx: string, assignedTools: string[], assignedSkills: string[]): string {
+function promptPlanning(pendingAnalysis: string, skillCtx: string, assignedTools: string[], assignedSkills: string[], userMessage = ''): string {
   const permissionReq = assignedTools.filter(t => TOOLS_REQUIRING_APPROVAL.includes(t));
+  const unassignedTools = ALL_TOOL_IDS.filter(t => !assignedTools.includes(t));
+  const capabilityContext = buildCapabilityContext(`${pendingAnalysis}\n${userMessage}`, assignedTools, unassignedTools, assignedSkills);
 
   return `You are Jenny AI in PLANNING MODE — STRUCTURED SYSTEM PLANNER.
 DO NOT EXECUTE. DO NOT OUTPUT JSON.
 
-Your job is to produce EXECUTION-READY PLANS.
+Your job is to produce EXECUTION-READY PLANS. The plan must be a precise numbered process the execution engine can follow.
 
 ═══════════════════════════════════════════════════════════════════════════
 🎯 OUTPUT FORMAT (STRICT)
@@ -380,7 +427,13 @@ Your job is to produce EXECUTION-READY PLANS.
 
 🔧 PLAN: <Clear Task Name>
 
-<Step-by-step solution>
+Goal:
+- <one precise outcome>
+
+Step-by-step Process:
+1. <first concrete step>
+2. <second concrete step>
+3. <continue until creation/setup/validation is complete>
 
 ⚙️ EXECUTION APPROACH:
 
@@ -389,6 +442,14 @@ Skills Used:
 
 Tools Required:
 - <tool_name> → <what it does>
+
+Tool Assignment Notes:
+- Assigned tools to use now: <real assigned tool ids only>
+- Tools to request before execution: <real unassigned tool ids needed, or none>
+
+Agent/Skill Setup Notes:
+- If creating a skill: name the .md file, include Tool Access, and define execution steps.
+- If creating an agent: list exact skills and exact tools the agent should receive.
 
 Permissions Required:
 - YES: <list tools from required list below> / NO (if using only safe tools)
@@ -404,6 +465,8 @@ ${assignedTools.join(', ')}
 ✅ ASSIGNED SKILLS:
 ${assignedSkills.join(', ')}
 
+${capabilityContext}
+
 📝 PERMISSION REQUIREMENTS:
 The following assigned tools REQUIRE explicit permission: ${permissionReq.join(', ') || 'None'}.
 If your plan uses these, set 'Permissions Required: YES' and list them.
@@ -412,7 +475,7 @@ ${skillCtx ? `RELEVANT SKILL KNOWLEDGE:\n${skillCtx}\n` : ''}
 NOTE: Skills are used SILENTLY as knowledge. Do not explain them.
 
 If you have an executable plan, end with:
-"Ready to confirm: [tool name and inputs]"
+"Ready to confirm: [primary tool and inputs]"
 Otherwise, use the structured format above.`;
 }
 
@@ -471,21 +534,7 @@ export async function orchestrate(
   const jenny = store.agents['system_jenny'];
   const assignedTools = jenny?.allowedTools || [];
   
-  // Full system tool IDs to find unassigned ones
-  const ALL_SYSTEM_TOOLS = [
-    'memory_search', 'memory_get', 'code_executor', 'platform_post', 
-    'instagram_dm', 'manage_agent', 'search_web', 'caption_manager', 
-    'improvement_propose', 'instagram_dm_reader', 'instagram_dm_sender',
-    'instagram_feed_reader', 'search_web', 'web_fetch', 'sessions_list',
-    'sessions_history', 'sessions_send', 'sessions_spawn', 'sessions_yield',
-    'subagents', 'session_status', 'browser', 'canvas', 'cron', 'gateway',
-    'get_agents', 'get_tasks', 'get_config', 'get_channels', 'get_skills',
-    'update_plan', 'install_skill', 'manage_agent', 'agent_notify',
-    'get_agent_output', 'agent_command', 'image', 'image_generate',
-    'music_generate', 'video_generate', 'tts', 'caption_manager',
-    'instagram_feed_reader', 'improvement_propose'
-  ];
-  const unassignedTools = ALL_SYSTEM_TOOLS.filter(t => !assignedTools.includes(t));
+  const unassignedTools = ALL_TOOL_IDS.filter(t => !assignedTools.includes(t));
 
   console.log(`[Orchestrator] mode=${mode} hasPlan=${hasPendingPlan} hasAnalysis=${hasPendingAnalysis} hasApproval=${hasPendingApproval}`);
 
@@ -511,7 +560,7 @@ export async function orchestrate(
     resetAfterExecution();
     
     return {
-      action: execResult.success ? 'tool_call' : 'conversation',
+      action: 'conversation',
       data: { results: execResult.results },
       reply: execResult.reply,
       taskId: execResult.taskId,
@@ -555,6 +604,12 @@ export async function orchestrate(
   // ════════════════════════════════════════════════════════════════════════════
   // STEP 3 — CLASSIFY INTENT
   // ════════════════════════════════════════════════════════════════════════════
+  if (mode === 'planning' && getPlanningStage() === 'interactive' && isFinalAgreement(message)) {
+    console.log('[Orchestrator] Planning agreement detected before LLM - finalizing structured plan');
+    setPlanningStage('finalized');
+    forceNextMode = 'planning';
+  }
+
   let targetMode: JennyMode;
   if (forceNextMode) {
     targetMode = transition(forceNextMode);
@@ -589,7 +644,7 @@ export async function orchestrate(
       .map(h => `${h.role === 'user' ? 'User' : 'Jenny'}: ${(h.content as string).slice(0, 120)}`)
       .join('\n');
     systemPrompt = stage === 'finalized'
-      ? promptPlanning(pendingAnal, skillCtx, assignedTools, assignedSkills)
+      ? promptPlanning(pendingAnal, skillCtx, assignedTools, assignedSkills, message)
       : promptInteractivePlanning(message, skillCtx, conversationSummary, assignedTools, unassignedTools, assignedSkills);
   } else if (targetMode === 'confirmation') {
     systemPrompt = promptConfirmation(pendingPlan || pendingAnal, skillCtx);
@@ -676,7 +731,7 @@ export async function orchestrate(
       }
       let finalRaw = raw;
       if (!hasStructuredFormat(finalRaw)) {
-        const finalizedSystemPrompt = promptPlanning(pendingAnal, skillCtx, assignedTools, assignedSkills);
+        const finalizedSystemPrompt = promptPlanning(pendingAnal, skillCtx, assignedTools, assignedSkills, message);
         const retryRaw = await ollamaChat({
           messages: [
             { role: 'system', content: finalizedSystemPrompt + '\n\n🚨 STRICT: Must include "🔧 PLAN:" and "⚙️ EXECUTION APPROACH:" sections.' },
@@ -694,7 +749,7 @@ export async function orchestrate(
       const hasExecutableTool = EXECUTABLE_TOOLS.some(t => lowerRaw2.includes(t));
       const hasConfirmSignal = /proceed with execution|do you want me to proceed|ready to confirm|say yes to execute/i.test(finalRaw);
 
-      if (hasExecutableTool && hasConfirmSignal) {
+      if ((hasExecutableTool || hasStructuredFormat(finalRaw)) && hasConfirmSignal) {
         console.log(`[Orchestrator] Planning → Confirmation (ToolDetected=${hasExecutableTool})`);
         const next = transition('confirmation');
         if (onMode) onMode(next);
@@ -710,7 +765,9 @@ export async function orchestrate(
   if (targetMode === 'confirmation') {
     const lowerRaw = raw.toLowerCase();
     const hasExecutableTool = EXECUTABLE_TOOLS.some(t => lowerRaw.includes(t));
-    if (!hasExecutableTool) throw new Error("Cannot enter confirmation without executable tool");
+    if (!hasExecutableTool) {
+      console.warn('[Orchestrator] Confirmation has no explicit executable tool mention; preserving structured plan for user confirmation');
+    }
     if (!hasValidConfirmation(raw)) {
       transition('planning');
       return { action: 'conversation', data: {}, reply: raw.trim() + '\n\n⚠️ Missing required confirmation structure.', mode: 'planning' };

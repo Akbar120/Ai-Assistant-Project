@@ -4,6 +4,29 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
+function normalizeSkillId(value?: string): string | null {
+  if (!value || typeof value !== 'string') return null;
+  const normalized = value
+    .trim()
+    .replace(/\.md$/i, '')
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  return /^[a-z0-9_]+$/.test(normalized) ? normalized : null;
+}
+
+function resolveSkillPath(skillId: string): string {
+  const skillsDir = path.resolve(process.cwd(), 'src/brain/skills');
+  const skillPath = path.resolve(skillsDir, `${skillId}.md`);
+  const skillsDirWithSep = `${skillsDir}${path.sep}`.toLowerCase();
+
+  if (!skillPath.toLowerCase().startsWith(skillsDirWithSep)) {
+    throw new Error('Invalid skill path');
+  }
+
+  return skillPath;
+}
+
 /**
  * Read from /brain/skills/*.md — NOT from tools.
  * Each .md file is a real installed skill.
@@ -75,6 +98,27 @@ export async function POST(req: Request) {
 
     fs.writeFileSync(filePath, content, 'utf-8');
     return NextResponse.json({ success: true, fileName });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const skillId = normalizeSkillId(body.id || body.name || body.skill_id);
+
+    if (!skillId) {
+      return NextResponse.json({ error: 'id or name required' }, { status: 400 });
+    }
+
+    const filePath = resolveSkillPath(skillId);
+    if (!fs.existsSync(filePath)) {
+      return NextResponse.json({ error: 'Skill not found' }, { status: 404 });
+    }
+
+    fs.unlinkSync(filePath);
+    return NextResponse.json({ success: true, id: skillId });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
