@@ -26,9 +26,11 @@ const TOOL_SIGNALS: Array<{ tool: string; signals: string[] }> = [
   { tool: 'instagram_dm',      signals: ['send dm', 'send message', 'instagram dm', 'dm to', 'message to', 'bhej', 'dm sender', 'instagram_dm'] },
   { tool: 'instagram_fetch',   signals: ['fetch dms', 'read dms', 'check dms', 'instagram fetch', 'instagram_fetch', 'instagram_dm_reader'] },
   { tool: 'search_web',        signals: ['search the web', 'search for', 'google', 'web search', 'search_web', 'look up'] },
-  { tool: 'code_executor',     signals: ['create skill', 'write skill', 'create tool', 'write file', 'create file', 'code_executor', 'write code', 'write_file'] },
+  { tool: 'code_executor',     signals: ['create skill', 'write skill', 'create tool', 'write file', 'create file', 'code_executor', 'write code', 'write_file', 'define_tool'] },
   { tool: 'manage_agent',      signals: ['create agent', 'spawn agent', 'start agent', 'manage_agent', 'new agent', 'delete skill', 'remove skill', 'delete_skill', 'delete agent', 'remove agent'] },
   { tool: 'caption_manager',   signals: ['generate caption', 'write caption', 'caption_manager', 'caption for'] },
+  { tool: 'install_skill',     signals: ['install skill', 'install_skill', 'install this skill', 'register skill'] },
+  { tool: 'update_plan',       signals: ['update plan', 'update_plan', 'modify plan', 'change plan'] },
 ];
 
 // Tools that are READ-ONLY — safe for planning/inspection but excluded from execution sequences
@@ -232,9 +234,12 @@ function resolveToolFromPlan(
   plan: string,
   history: OllamaMessage[],
 ): ToolCall[] {
-  const planLower = plan.toLowerCase();
   const found: ToolCall[] = [];
   const seen = new Set<string>(); // prevent duplicate tool calls
+  
+  // Constrain the search to actual execution/tool sections to prevent hallucinated matches from descriptions
+  const executionSectionMatch = plan.match(/(?:Tools Required|Execution Approach|EXECUTION|PLAN|Steps?)[\s\S]+$/i);
+  const searchArea = (executionSectionMatch ? executionSectionMatch[0] : plan).toLowerCase();
 
   for (const { tool, signals } of TOOL_SIGNALS) {
     // Skip read-only tools — they're for planning inspection only
@@ -242,7 +247,7 @@ function resolveToolFromPlan(
     // Skip if already added
     if (seen.has(tool)) continue;
 
-    if (signals.some(sig => planLower.includes(sig))) {
+    if (signals.some(sig => searchArea.includes(sig))) {
       let args: Record<string, any> = {};
 
       switch (tool) {
@@ -260,6 +265,7 @@ function resolveToolFromPlan(
           args = { prompt: capMatch ? capMatch[1].trim() : 'a social media post' };
           break;
         }
+        case 'install_skill': args = extractInstallSkillArgs(plan); break;
         default: args = {};
       }
 
@@ -327,6 +333,14 @@ function repairToolCall(call: ToolCall, plan: string, history: OllamaMessage[]):
   return { tool: call.tool, args };
 }
 
+function extractInstallSkillArgs(plan: string): Record<string, any> {
+  const match = plan.match(/(?:install_skill|install skill)[:\s]+(?:named?|called?)?\s*["'`]?([a-zA-Z0-9_\-]+)["'`]?/i);
+  if (match && match[1]) {
+    return { skill_name: match[1].trim() };
+  }
+  return {};
+}
+
 async function resolveSequenceViaLLM(
   plan: string,
   history: OllamaMessage[],
@@ -335,6 +349,7 @@ async function resolveSequenceViaLLM(
   console.log('[ExecutionEngine] Using LLM to extract execution sequence');
 
   const historySnippet = history.slice(-5).map(m => `${m.role}: ${m.content.slice(0, 200)}`).join('\n');
+  const availableToolsList = TOOL_SIGNALS.map(t => t.tool).join(', ');
 
   const prompt = `You are a high-level tool execution sequencer. Extract the COMPLETE sequence of tool calls needed to fulfill this APPROVED PLAN.
 
@@ -345,14 +360,15 @@ RECENT CONTEXT:
 ${historySnippet}
 ${skillCtx ? `\nRELEVANT KNOWLEDGE:\n${skillCtx}` : ''}
 
-AVAILABLE TOOLS: platform_post, instagram_dm, instagram_fetch, search_web, code_executor, manage_agent, caption_manager, get_skills, get_agents, get_tasks
+AVAILABLE TOOLS: ${availableToolsList}
 
 RULES:
 1. Return a JSON array of tool calls in chronological order.
 2. If one step depends on another, include them both.
 3. Be precise with arguments.
 4. For deleting a skill, use {"tool":"manage_agent","args":{"operation":"delete_skill","skill_id":"exact_skill_id"}}.
-5. Never call manage_agent without an operation.
+5. For write_file or creating skills, use {"tool":"code_executor", "args":{"operation":"create_skill", "name":"skill_name", "description":"what it does"}}
+6. Never call manage_agent without an operation.
 
 Reply ONLY with this exact JSON format (no text before or after):
 [
