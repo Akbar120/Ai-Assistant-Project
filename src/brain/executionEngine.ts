@@ -98,35 +98,71 @@ function extractPlatformPostArgs(plan: string, history: OllamaMessage[]): Record
 }
 
 function extractCodeExecutorArgs(plan: string): Record<string, any> {
-  const isSkill = /skill/i.test(plan);
-  const isTool = /tool/i.test(plan);
-  const isWriteFile = /write[_ ]file|create[_ ]file/i.test(plan);
+  const planLower = plan.toLowerCase();
+  const isSkill = /create skill|write skill|skill file|skill named?|skill called?/i.test(plan);
+  const isTool  = /create tool|define[_ ]tool|tool named?|tool called?/i.test(plan);
+  const isWriteFile = !isSkill && !isTool && /write[_ ]file|create[_ ]file|write content/i.test(plan);
 
-  // Try to find file path / name
-  const pathMatch = plan.match(/(?:file_path|path|named?|called?|skill name|tool name)[:\s]+["']?([a-zA-Z0-9._\-\/\\ ]+?)["']?(?:\n|,|\.|\))/i);
-  const path = pathMatch ? pathMatch[1].trim().replace(/\s+/g, '_') : 'new_item.txt';
-
-  // Try to find operation
+  // ── Determine operation ────────────────────────────────────────────────────
   let operation = 'write_file';
-  if (isSkill) operation = 'create_skill';
+  if (isSkill)     operation = 'create_skill';
   else if (isTool) operation = 'create_tool';
 
-  // Try to extract content if operation is write_file
-  let content = '';
-  const contentMatch = plan.match(/(?:content|text)[:\s]+["']([\s\S]+?)["'](?:\n|$|\))/i) 
-    || plan.match(/(?:content|text)[:\s]+([\s\S]+?)(?:\n|$|\))/i);
-  
-  if (contentMatch) {
-    content = contentMatch[1].trim();
+  // ── Extract description / goal ─────────────────────────────────────────────
+  // Priority: Goal: line > Step 1 > first 200 chars of plan
+  const goalMatch = plan.match(/^Goal[:\s]+(.+?)$/mi)
+    || plan.match(/^Purpose[:\s]+(.+?)$/mi)
+    || plan.match(/Step[:\s]*1[.:\s]+(.+?)$/mi);
+  const description = goalMatch ? goalMatch[1].trim() : plan.slice(0, 200);
+
+  // ── Extract skill name ─────────────────────────────────────────────────────
+  if (isSkill) {
+    // Try explicit "skill named X" or "skill called X" patterns
+    let skillName = '';
+    const explicit = plan.match(/skill(?:\s+(?:named?|called?|file))[:\s]+["'`]?([a-zA-Z0-9_\- ]+?)["'`]?(?:\n|,|\.)/i)
+      || plan.match(/create skill[:\s]+["'`]?([a-zA-Z0-9_\- ]+?)["'`]?(?:\n|,|\.)/i)
+      || plan.match(/🔧 PLAN:[^\n]*Create[^\n]*Skill[^\n]*"([^"]+)"/i);
+    if (explicit) {
+      skillName = explicit[1].trim();
+    } else {
+      // Fall back: pull from plan header "🔧 PLAN: Create X Skill"
+      const headerMatch = plan.match(/🔧 PLAN:\s*(?:Create|Draft|Write|Build)?\s*(.+?)(?:\s*Skill)?$/im)
+        || plan.match(/PLAN:\s*(.+?)$/im);
+      skillName = headerMatch ? headerMatch[1].trim() : 'custom_skill';
+    }
+    // Sanitize: lowercase, snake_case, strip file extensions
+    skillName = skillName.toLowerCase().replace(/\s+/g, '_').replace(/\.[a-z]+$/i, '').replace(/[^a-z0-9_]/g, '');
+    if (!skillName) skillName = 'custom_skill';
+    return { operation, name: skillName, description, goal: description };
   }
 
-  const descMatch = plan.match(/(?:description|goal|purpose|it (?:should|will|must))[:\s]+(.+?)(?:\n|$)/i);
-  const description = descMatch ? descMatch[1].trim() : plan.slice(0, 200);
+  // ── Extract tool name ──────────────────────────────────────────────────────
+  if (isTool) {
+    let toolName = '';
+    const explicit = plan.match(/tool(?:\s+(?:named?|called?))[:\s]+["'`]?([a-zA-Z0-9_\- ]+?)["'`]?(?:\n|,|\.)/i)
+      || plan.match(/define[_ ]tool[:\s]+["'`]?([a-zA-Z0-9_\- ]+?)["'`]?(?:\n|,|\.)/i);
+    if (explicit) {
+      toolName = explicit[1].trim();
+    } else {
+      const headerMatch = plan.match(/🔧 PLAN:\s*(?:Create|Define|Build)?\s*(.+?)(?:\s*Tool)?$/im);
+      toolName = headerMatch ? headerMatch[1].trim() : 'custom_tool';
+    }
+    toolName = toolName.toLowerCase().replace(/\s+/g, '_').replace(/\.[a-z]+$/i, '').replace(/[^a-z0-9_]/g, '');
+    if (!toolName) toolName = 'custom_tool';
+    return { operation, name: toolName, description, goal: description };
+  }
+
+  // ── Extract file path for write_file ──────────────────────────────────────
+  const pathMatch = plan.match(/(?:file[_ ]path|path|create file at)[:\s]+["'`]?([a-zA-Z0-9._\-\/\\ ]+?)["'`]?(?:\n|,|\.)/i);
+  const filePath = pathMatch ? pathMatch[1].trim().replace(/\s+/g, '_') : 'output/new_file.txt';
+
+  const contentMatch = plan.match(/(?:content|text)[:\s]+["']([\s\S]+?)["'](?:\n|$)/i);
+  const content = contentMatch ? contentMatch[1].trim() : '';
 
   return {
     operation,
-    name: path,
-    path, // code_executor uses 'name' for skills/tools but often 'path' for files
+    path: filePath,
+    name: filePath,
     content,
     description,
     goal: description,
