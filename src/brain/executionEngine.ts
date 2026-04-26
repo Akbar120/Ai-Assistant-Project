@@ -27,12 +27,12 @@ const TOOL_SIGNALS: Array<{ tool: string; signals: string[] }> = [
   { tool: 'instagram_fetch',   signals: ['fetch dms', 'read dms', 'check dms', 'instagram fetch', 'instagram_fetch', 'instagram_dm_reader'] },
   { tool: 'search_web',        signals: ['search the web', 'search for', 'google', 'web search', 'search_web', 'look up'] },
   { tool: 'code_executor',     signals: ['create skill', 'write skill', 'create tool', 'write file', 'create file', 'code_executor', 'write code', 'write_file'] },
-  { tool: 'manage_agent',      signals: ['create agent', 'spawn agent', 'start agent', 'manage_agent', 'new agent', 'delete skill', 'remove skill', 'delete_skill'] },
+  { tool: 'manage_agent',      signals: ['create agent', 'spawn agent', 'start agent', 'manage_agent', 'new agent', 'delete skill', 'remove skill', 'delete_skill', 'delete agent', 'remove agent'] },
   { tool: 'caption_manager',   signals: ['generate caption', 'write caption', 'caption_manager', 'caption for'] },
-  { tool: 'get_skills',        signals: ['list skills', 'show skills', 'what skills', 'get_skills'] },
-  { tool: 'get_agents',        signals: ['list agents', 'show agents', 'what agents', 'get_agents'] },
-  { tool: 'get_tasks',         signals: ['list tasks', 'show tasks', 'what tasks', 'get_tasks'] },
 ];
+
+// Tools that are READ-ONLY — safe for planning/inspection but excluded from execution sequences
+const READ_ONLY_TOOLS = ['get_skills', 'get_agents', 'get_tasks', 'memory_search', 'memory_get', 'get_config', 'get_channels'];
 
 // ── Fake-execution text patterns — LLM hallucinating execution ────────────────
 const FAKE_EXECUTION_PATTERNS = [
@@ -198,8 +198,14 @@ function resolveToolFromPlan(
 ): ToolCall[] {
   const planLower = plan.toLowerCase();
   const found: ToolCall[] = [];
+  const seen = new Set<string>(); // prevent duplicate tool calls
 
   for (const { tool, signals } of TOOL_SIGNALS) {
+    // Skip read-only tools — they're for planning inspection only
+    if (READ_ONLY_TOOLS.includes(tool)) continue;
+    // Skip if already added
+    if (seen.has(tool)) continue;
+
     if (signals.some(sig => planLower.includes(sig))) {
       let args: Record<string, any> = {};
 
@@ -221,8 +227,15 @@ function resolveToolFromPlan(
         default: args = {};
       }
 
-      console.log(`[ExecutionEngine] Resolved tool="${tool}" from plan keywords`);
-      found.push({ tool, args });
+      const repairedCall = repairToolCall({ tool, args }, plan, history);
+      if (repairedCall.tool === '__invalid__') {
+        console.warn(`[ExecutionEngine] Skipping invalid tool call for "${tool}" — operation could not be inferred`);
+        continue;
+      }
+
+      console.log(`[ExecutionEngine] Resolved tool="${tool}" (op=${args.operation || 'n/a'}) from plan keywords`);
+      found.push(repairedCall);
+      seen.add(tool);
     }
   }
 
@@ -234,13 +247,31 @@ function repairToolCall(call: ToolCall, plan: string, history: OllamaMessage[]):
   if (call.tool !== 'manage_agent') return call;
 
   const args = call.args && typeof call.args === 'object' ? { ...call.args } : {};
-  const isSkillDeletion = /\b(delete|remove)\b/i.test(plan) && /\bskill\b/i.test(plan);
+  const planLower = plan.toLowerCase();
 
-  if (isSkillDeletion && (!args.operation || /^(delete|remove)$/i.test(String(args.operation)))) {
-    args.operation = 'delete_skill';
+  // Infer operation from plan keywords if missing or ambiguous
+  if (!args.operation || args.operation === 'undefined') {
+    if (/\bdelete\b.{0,20}\bskill\b|\bremove\b.{0,20}\bskill\b/i.test(planLower)) {
+      args.operation = 'delete_skill';
+    } else if (/\bdelete\b.{0,20}\bagent\b|\bremove\b.{0,20}\bagent\b/i.test(planLower)) {
+      args.operation = 'delete_agent';
+    } else if (/\bcreate\b.{0,20}\bagent\b|\bspawn\b.{0,20}\bagent\b|\bnew\b.{0,20}\bagent\b/i.test(planLower)) {
+      args.operation = 'create_agent';
+    } else if (/\bassign\b.{0,20}\btool\b/i.test(planLower)) {
+      args.operation = 'assign_tool';
+    } else if (/\brestart\b.{0,20}\bagent\b/i.test(planLower)) {
+      args.operation = 'restart_agent';
+    }
+    // If still no operation, log and mark invalid
+    if (!args.operation) {
+      console.warn('[ExecutionEngine] repairToolCall: could not infer manage_agent operation from plan');
+      return { tool: '__invalid__', args }; // sentinel — will be filtered out
+    }
   }
 
-  if (args.operation === 'delete_skill' && !args.skill_id) {
+  // For skill deletion, ensure skill_id is set
+  const isSkillDeletion = /\b(delete|remove)\b/i.test(plan) && /\bskill\b/i.test(plan);
+  if (isSkillDeletion && args.operation === 'delete_skill' && !args.skill_id) {
     args.skill_id = extractSkillDeletionName(plan, history);
   }
 
@@ -298,8 +329,14 @@ If no tools are needed, reply ONLY with: []`;
 
     const validTools = TOOL_SIGNALS.map(t => t.tool);
     return parsed
-      .filter(call => validTools.includes(call.tool))
-      .map(call => repairToolCall({ tool: call.tool, args: call.args || {} }, plan, history));
+      .filter(call => {
+        if (!call.tool || !validTools.includes(call.tool)) return false;
+        // Read-only tools have no place in the execution sequence
+        if (READ_ONLY_TOOLS.includes(call.tool)) return false;
+        return true;
+      })
+      .map(call => repairToolCall({ tool: call.tool, args: call.args || {} }, plan, history))
+      .filter(call => call.tool !== '__invalid__'); // drop calls that could not be repaired
   } catch (err) {
     console.error('[ExecutionEngine] LLM sequence resolution failed:', err);
     return [];

@@ -56,7 +56,7 @@ const EXECUTABLE_TOOLS = [
   'exec', 'write', 'edit', 'apply_patch', 'write_file', 'define_tool', 
   'image_generate', 'music_generate', 'video_generate', 'tts', 'cron', 
   'gateway', 'browser', 'canvas', 'manage_agent', 'agent_command', 
-  'install_skill', 'update_plan', 'memory_search', 'memory_get'
+  'install_skill', 'update_plan'
 ];
 
 // Tools that ALWAYS require explicit user permission before execution (from refinedPermissionGuard.ts)
@@ -206,71 +206,6 @@ function isPlanningAbort(msg: string): boolean {
   const clean = msg.toLowerCase().trim();
   // STRICT CHECK: Only trigger on exact standalone commands, not natural sentences
   return clean === 'abort' || clean === 'abort karo';
-}
-
-// ── MODE OUTPUT VALIDATION ───────────────────────────────────────────────────
-function validateModeOutput(mode: string, text: string): boolean {
-  const t = text.toLowerCase();
-
-  if (mode === 'planning') {
-    return (
-      t.includes('understanding') &&
-      (t.includes('assumptions') || t.includes('assume')) &&
-      (t.includes('proposed solution') || t.includes('solution') || t.includes('plan:'))
-    );
-  }
-
-  if (mode === 'confirmation') {
-    return (
-      (t.includes('what will be built') || t.includes('plan summary') || t.includes('here\'s what i\'ll')) &&
-      t.includes('tool') &&
-      (t.includes('execution steps') || t.includes('step')) &&
-      (t.includes('confirm') || t.includes('yes to execute'))
-    );
-  }
-
-  if (mode === 'execution') {
-    return t.includes('tool_call') || t.includes('executing');
-  }
-
-  return true;
-}
-
-function hasValidPlan(text: string): boolean {
-  return (
-    text.includes('step') ||
-    text.includes('architecture') ||
-    text.includes('flow') ||
-    text.includes('solution') ||
-    text.includes('plan')
-  );
-}
-
-function hasValidConfirmation(text: string): boolean {
-  return (
-    text.includes('what will be built') ||
-    text.includes('tool') ||
-    text.includes('execution steps') ||
-    text.includes('here\'s what')
-  );
-}
-
-// Get next mode with strict transition rules
-function getNextMode(currentMode: string, hasPlan: boolean, hasApproval: boolean, hasEnoughInfo: boolean): string {
-  switch (currentMode) {
-    case 'conversation':
-      return 'analyze';
-    case 'analyze':
-      return hasEnoughInfo ? 'planning' : 'analyze';
-    case 'planning':
-      return hasPlan ? 'confirmation' : 'planning';
-    case 'confirmation':
-      return hasApproval ? 'execution' : 'confirmation';
-    case 'execution':
-      return 'conversation';
-    default:
-      return 'conversation';
-  }
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -744,34 +679,22 @@ export async function orchestrate(
         }).catch(() => '');
         if (retryRaw && hasStructuredFormat(retryRaw)) finalRaw = retryRaw;
       }
-      storePendingPlan(finalRaw.trim());
-      const lowerRaw2 = finalRaw.toLowerCase();
-      const hasExecutableTool = EXECUTABLE_TOOLS.some(t => lowerRaw2.includes(t));
-      const hasConfirmSignal = /proceed with execution|do you want me to proceed|ready to confirm|say yes to execute/i.test(finalRaw);
 
-      if ((hasExecutableTool || hasStructuredFormat(finalRaw)) && hasConfirmSignal) {
-        console.log(`[Orchestrator] Planning → Confirmation (ToolDetected=${hasExecutableTool})`);
-        const next = transition('confirmation');
-        if (onMode) onMode(next);
-        // RECURSE: Move to confirmation immediately to generate the summary
-        return orchestrate(message, history, enriched, images, onSentence, onMode, 'confirmation');
-      }
+      // Store plan and transition to confirmation — NO second LLM call
+      storePendingPlan(finalRaw.trim());
       setPlanningStage('interactive');
-      return { action: 'conversation', data: {}, reply: finalRaw.trim(), mode: getCurrentMode() };
+      const next = transition('confirmation');
+      if (onMode) onMode(next);
+      console.log('[Orchestrator] Structured plan stored → Confirmation mode activated');
+
+      const confirmReply = finalRaw.trim() + '\n\n---\n\n✅ **Plan is ready.** Say **YES** to execute, or tell me what to change.';
+      return { action: 'conversation', data: {}, reply: confirmReply, mode: 'confirmation' };
     }
     return { action: 'conversation', data: {}, reply: raw.trim(), mode: getCurrentMode() };
   }
 
   if (targetMode === 'confirmation') {
-    const lowerRaw = raw.toLowerCase();
-    const hasExecutableTool = EXECUTABLE_TOOLS.some(t => lowerRaw.includes(t));
-    if (!hasExecutableTool) {
-      console.warn('[Orchestrator] Confirmation has no explicit executable tool mention; preserving structured plan for user confirmation');
-    }
-    if (!hasValidConfirmation(raw)) {
-      transition('planning');
-      return { action: 'conversation', data: {}, reply: raw.trim() + '\n\n⚠️ Missing required confirmation structure.', mode: 'planning' };
-    }
+    // Plan is already stored. Present it as-is and wait for user's YES/NO.
     storePendingPlan(raw.trim());
     unlockMode();
     return { action: 'conversation', data: {}, reply: raw.trim(), mode: getCurrentMode() };
