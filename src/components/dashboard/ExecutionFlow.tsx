@@ -138,8 +138,9 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
     <aside style={{
       width: 300, minWidth: 300, height: '100%',
       display: 'flex', flexDirection: 'column',
-      borderLeft: '1px solid rgba(255,255,255,0.07)',
-      background: '#07080f', flexShrink: 0, zIndex: 10,
+      background: '#07080f', flexShrink: 0, 
+      position: 'relative',
+      zIndex: 10,
     }}>
 
       {/* Header */}
@@ -207,7 +208,7 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
       ) : (
         <>
           {/* Step Timeline */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px', minHeight: 0 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', minHeight: 0 }}>
             {!activeRecord ? (
               <div style={{ color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 40, fontWeight: 500 }}>
                 Awaiting sequence…
@@ -223,7 +224,7 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
 
                   return (
                     <div key={step.id} style={{
-                      display: 'flex', gap: 16, marginBottom: 24,
+                      display: 'flex', gap: 12, marginBottom: 16,
                       opacity: inactive ? 0.35 : 1, transition: 'all 0.4s ease',
                       transform: active ? 'translateX(4px)' : 'none',
                     }}>
@@ -262,7 +263,7 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
           {/* Execution Logs */}
           {activeRecord && (
             <div style={{
-              height: 180, borderTop: '1px solid rgba(255,255,255,0.07)',
+              height: 140, borderTop: '1px solid rgba(255,255,255,0.07)',
               background: '#050508', display: 'flex', flexDirection: 'column',
             }}>
               <div style={{ fontSize: 10, color: '#64748b', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontWeight: 800, letterSpacing: '0.1em' }}>
@@ -312,15 +313,15 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
 
       {/* Skills Active Panel */}
       <div style={{
-        padding: '20px',
+        padding: '16px',
         borderTop: '1px solid rgba(255,255,255,0.07)',
         background: 'rgba(0,0,0,0.2)',
         flexShrink: 0,
       }}>
-        <div style={{ fontSize: 10, color: '#64748b', fontWeight: 800, letterSpacing: '0.1em', marginBottom: 16, textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 9, color: '#64748b', fontWeight: 800, letterSpacing: '0.1em', marginBottom: 12, textTransform: 'uppercase' }}>
           Skills Active (9)
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {[
             { icon: 'fa-brands fa-instagram', color: '#E1306C', name: 'Instagram' },
             { icon: 'fa-brands fa-twitter', color: '#ffffff', name: 'Twitter' },

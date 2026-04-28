@@ -44,6 +44,9 @@ import {
   getPendingAnalysis,
   approvePlan,
   resetAfterExecution,
+  isApprovalMessage,
+  isRejectionMessage,
+  isAbortMessage,
   classifyIntent,
   resolveNextMode,
   getPlanningStage,
@@ -91,46 +94,9 @@ export interface OrchestratorResult {
   mode: JennyMode;
 }
 
-// ── APPROVAL DETECTION — pure deterministic, no LLM ──────────────────────────
-const APPROVAL_WORDS = [
-  'yes', 'proceed', 'go ahead', 'theek hai', 'haan', 'approved',
-  'kar do', 'chalo', 'bilkul', 'confirm', 'let\'s go',
-  'okay', 'ok', 'sure', 'absolutely', 'correct', 'sahi hai', 'done',
-  'execute it', 'do it', 'run it'
-];
-
-function isApprovalMessage(msg: string): boolean {
-  const clean = msg.toLowerCase().trim();
-  // Short message (< 100 chars) containing an approval word
-  if (clean.length > 100) return false;
-  
-  // If it asks a question or asks to explain, it's not an approval
-  if (clean.includes('?') || /\b(kya|kaise|kyun|how|why|what|explain|tell|batao)\b/i.test(clean)) {
-    return false;
-  }
-
-  // Common simple approvals
-  if (/^(yes|haan|ok|okay|yep|sure|y|go|chalo|done|kar do|sahi hai|perfect)$/i.test(clean)) return true;
-
-  return APPROVAL_WORDS.some(w => {
-    const re = new RegExp(`(^|\\s)${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$|[!?.,])`, 'i');
-    return re.test(clean) || clean === w;
-  });
-}
-
-const REJECTION_WORDS = ['no', 'nahi', 'nahi chahiye', 'cancel', 'abort', 'stop', 'rehne do', 'ruk', 'wait', 'change'];
-function isRejectionMessage(msg: string): boolean {
-  const clean = msg.toLowerCase().trim();
-  if (clean.length > 60) return false;
-  return REJECTION_WORDS.some(w => clean.includes(w));
-}
-
-/**
- * isFinalAgreement — checks if user has AGREED to finalize the plan.
- * Reads FULL SENTENCE INTENT, never isolated words.
- * Used only inside Planning Mode (Interactive Stage).
- */
-function isFinalAgreement(msg: string): boolean {
+// isFinalAgreement - checks if user has AGREED to finalize the plan
+// Used only inside Planning Mode
+export function isFinalAgreement(msg: string): boolean {
   const clean = msg.toLowerCase().trim();
 
   // Long messages are discussion/refinement — not agreements
@@ -240,7 +206,31 @@ function promptAnalyze(message: string, skillCtx: string, assignedTools: string[
   return `You are Jenny AI in ANALYZE MODE — DECISIVE TOOL SELECTOR.
 DO NOT EXECUTE. DO NOT OUTPUT JSON.
 
-Your job is to determine WHICH tool to use. No explanations, no skill references.
+YOUR JOB: First THINK about what the user wants, THEN decide which tool to use.
+
+THINK (internal - do not output):
+1. User ne kya kaha? / What does user want?
+2. Kya kaam karna hai? / What needs to be done?
+3. Kaisa task hai? (simple one-step, or complex multi-step)
+4. Kis tool se hoga? / Which tool fits best?
+
+══════════════════════════════════════════════════════════════════════════════════
+TOOLS:
+${assignedTools.join(', ') || 'None'}
+SKILLS:
+${assignedSkills.join(', ') || 'None'}
+${capabilityContext}
+
+══════════════════════════════════════════════════════════════════════════════════
+STRICT RULES
+- NEVER output "Explanation:"
+- NEVER explain which skill you're using
+- NEVER act as a chatbot
+- NEVER ask unnecessary questions
+- ALWAYS map to a concrete TOOL from the ASSIGNED list
+- If unclear, ask clarifying question
+
+USER REQUEST: "${message}"
 
 ═══════════════════════════════════════════════════════════════════════════════════
 🚨 CONCEPTUAL CORE

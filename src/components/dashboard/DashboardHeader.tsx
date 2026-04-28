@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useVoiceEngine } from '@/hooks/useVoiceEngine';
 import { useMessagePipeline } from '@/hooks/useMessagePipeline';
 
@@ -21,11 +22,34 @@ export default function DashboardHeader({
 }: {
   activeMode?: JennyMode;
 }) {
+  const router = useRouter();
   const { status: voiceStatus, setListening } = useVoiceEngine();
   const { stopAllTTS } = useMessagePipeline();
 
   const [micEnabled, setMicEnabled] = useState(true);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+      router.push('/login');
+    } catch (err) {
+      console.error('Failed to sign out:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.profile-dropdown')) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [profileOpen]);
 
   // Poll mode from server if not passed as prop
   const [polledMode, setPolledMode] = useState<JennyMode>('conversation');
@@ -126,7 +150,9 @@ export default function DashboardHeader({
       borderBottom: '1px solid rgba(255,255,255,0.07)',
       background: 'rgba(7,8,15,0.8)',
       backdropFilter: 'blur(12px)',
-      flexShrink: 0, zIndex: 10,
+      flexShrink: 0, 
+      position: 'relative',
+      zIndex: 1000,
     }}>
 
       {/* Left — Jenny identity */}
@@ -284,15 +310,86 @@ export default function DashboardHeader({
             <span style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, background: '#ef4444', borderRadius: '50%', border: '2px solid #07080f', boxShadow: '0 0 8px rgba(239,68,68,0.5)' }} />
           </button>
 
-          {/* Profile */}
-          <button title="Profile" style={{
-            width: 40, height: 40, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #00f2ff, #6c63ff)',
-            border: '2px solid rgba(255,255,255,0.1)',
-            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', fontWeight: 800, fontSize: 14, flexShrink: 0,
-            boxShadow: '0 0 15px rgba(0,242,255,0.3)',
-          }}>A</button>
+          {/* Profile Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setProfileOpen(!profileOpen)}
+              title="Profile"
+              style={{
+                width: 40, height: 40, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #00f2ff, #6c63ff)',
+                border: '2px solid rgba(255,255,255,0.1)',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', fontWeight: 800, fontSize: 14, flexShrink: 0,
+                boxShadow: '0 0 15px rgba(0,242,255,0.3)',
+              }}
+            >A</button>
+
+            {profileOpen && (
+              <div
+                className="profile-dropdown"
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: 8,
+                  minWidth: 160,
+                  background: '#13151f',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 12,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  overflow: 'hidden',
+                  zIndex: 100,
+                }}
+              >
+                <button
+                  onClick={() => { setProfileOpen(false); router.push('/settings'); }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#e2e8f0',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,242,255,0.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                >
+                  <i className="fa-solid fa-gear" style={{ width: 16, color: '#64748b' }} />
+                  Settings
+                </button>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
+                <button
+                  onClick={() => { setProfileOpen(false); handleSignOut(); }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                >
+                  <i className="fa-solid fa-right-from-bracket" style={{ width: 16 }} />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

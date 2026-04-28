@@ -134,10 +134,34 @@ export function unlockMode() {
   modeLocked = false;
 }
 
+// Approval/Rejection/Abort helpers (for orchestrator)
+export function isApprovalMessage(msg: string, inConfirmation: boolean = false): boolean {
+  const clean = msg.toLowerCase().trim();
+  if (clean.length > 100) return false;
+  
+  const hasModifier = /but|however|change|modify|wait|actually|except|let me|I want|can we/i.test(clean);
+  if (hasModifier) return false;
+  
+  const approvalWords = ['yes', 'haan', 'ok', 'okay', 'yep', 'sure', 'go', 'proceed', 'do it', 'execute', 'bilkul', 'confirm', 'done', 'kardo', 'kar lo'];
+  return approvalWords.some(w => new RegExp('^' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$|^' + w + '[!?.]?', 'i').test(clean));
+}
+
+export function isRejectionMessage(msg: string): boolean {
+  const clean = msg.toLowerCase().trim();
+  if (clean.length > 60) return false;
+  const rejectionWords = ['no', 'nahi', 'cancel', 'abort', 'stop', 'rehne do', 'ruk', 'wait', 'change', 'nahi chahiye'];
+  return rejectionWords.some(w => clean.includes(w));
+}
+
+export function isAbortMessage(msg: string): boolean {
+  const clean = msg.toLowerCase().trim();
+  return clean === 'abort' || clean === 'abort karo';
+}
+
 // ── DETERMINISTIC INTENT CLASSIFIER ──────────────────────────────────────────
 //
-// NO LLM. Pure rules. Always fires correctly.
-// This replaces the LLM-based classifyIntent entirely.
+// NOTE: Intent classification is now primarily done by LLM (in orchestrator prompts).
+// This classifier is kept as fallback for quick checks.
 //
 
 /** Strong task action verbs — if present, it's a task */

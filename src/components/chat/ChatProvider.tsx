@@ -27,6 +27,8 @@ interface ChatContextValue {
   setIsSpeaking: (speaking: boolean) => void;
   updateMessage: (id: string, updates: Partial<ChatMessage>, persist?: boolean) => Promise<void>;
   isOllamaOnline: boolean;
+  hasStartedReply: boolean;
+  setHasStartedReply: (value: boolean) => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -94,6 +96,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [processingTaskLabel, setProcessingTaskLabel] = useState<string | null>(null);
   const [isOllamaOnline, setIsOllamaOnline] = useState(false);
+  const [hasStartedReply, setHasStartedReply] = useState(false);
   const latestMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -276,7 +279,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setIsSpeaking,
     updateMessage,
     isOllamaOnline,
-  }), [appendMessage, hasHydrated, initialized, loading, messages, processingTaskLabel, setProcessingTaskLabel, replaceMessages, isMuted, setIsMuted, isSpeaking, setIsSpeaking, updateMessage, isOllamaOnline]);
+    hasStartedReply,
+    setHasStartedReply,
+  }), [appendMessage, hasHydrated, initialized, loading, messages, processingTaskLabel, setProcessingTaskLabel, replaceMessages, isMuted, setIsMuted, isSpeaking, setIsSpeaking, updateMessage, isOllamaOnline, hasStartedReply, setHasStartedReply]);
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

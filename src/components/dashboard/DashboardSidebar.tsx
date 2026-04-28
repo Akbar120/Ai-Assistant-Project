@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useChatStore } from '@/components/chat/ChatProvider';
@@ -20,7 +20,85 @@ const NAV_ITEMS = [
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const { isSpeaking, isOllamaOnline: online } = useChatStore();
+  const { isSpeaking, isOllamaOnline: online, loading, processingTaskLabel, hasStartedReply } = useChatStore();
+  
+  const video1Ref = useRef<HTMLVideoElement>(null);
+  const video2Ref = useRef<HTMLVideoElement>(null);
+  const [activeVideo, setActiveVideo] = useState<1 | 2>(1);
+  const [videosReady, setVideosReady] = useState(false);
+  const [isVideo1Playing, setIsVideo1Playing] = useState(false);
+  const lastThinkingRef = useRef(false);
+
+  const isJennyThinking = (loading || processingTaskLabel !== null) && !hasStartedReply;
+
+  // 1. Thinking Starts -> Play Video 1 to end and stick
+  useEffect(() => {
+    if (isJennyThinking && !lastThinkingRef.current) {
+      if (video1Ref.current) {
+        video1Ref.current.currentTime = 0;
+        
+        const handlePlaying = () => {
+          setActiveVideo(1);
+          setIsVideo1Playing(true);
+          video1Ref.current?.removeEventListener('playing', handlePlaying);
+        };
+        
+        video1Ref.current.addEventListener('playing', handlePlaying);
+        video1Ref.current.play().catch(() => {});
+      }
+      // Prepare Video 2 for the upcoming reply transition
+      if (video2Ref.current) {
+        video2Ref.current.currentTime = 0;
+        video2Ref.current.pause();
+      }
+    }
+    lastThinkingRef.current = isJennyThinking;
+  }, [isJennyThinking]);
+
+  // 2. Thinking Ends (Reply Starts) -> Play Video 2 to end
+  useEffect(() => {
+    if (hasStartedReply) {
+      setIsVideo1Playing(false);
+      if (video2Ref.current) {
+        video2Ref.current.currentTime = 0;
+        
+        const handlePlaying = () => {
+          setActiveVideo(2);
+          // ONLY reset Video 1 AFTER Video 2 has taken over the screen
+          if (video1Ref.current) {
+            video1Ref.current.currentTime = 0;
+            video1Ref.current.pause();
+          }
+          video2Ref.current?.removeEventListener('playing', handlePlaying);
+        };
+        
+        video2Ref.current.addEventListener('playing', handlePlaying);
+        video2Ref.current.play().catch(() => {});
+      }
+    }
+  }, [hasStartedReply]);
+
+  const handleVideo2Ended = () => {
+    // 3. Video 2 ends -> Silently switch back to Video 1 (already at 0)
+    setActiveVideo(1);
+  };
+
+  // Preload check
+  useEffect(() => {
+    const v1 = video1Ref.current;
+    const v2 = video2Ref.current;
+    if (v1 && v2) {
+      const check = () => {
+        if (v1.readyState >= 3 && v2.readyState >= 3) setVideosReady(true);
+      };
+      v1.addEventListener('canplaythrough', check);
+      v2.addEventListener('canplaythrough', check);
+      return () => {
+        v1.removeEventListener('canplaythrough', check);
+        v2.removeEventListener('canplaythrough', check);
+      };
+    }
+  }, []);
 
   return (
     <>
@@ -44,6 +122,133 @@ export default function DashboardSidebar() {
         .sidebar-nav-link:hover {
           background: rgba(176,38,255,0.08) !important;
           color: white !important;
+        }
+        
+        /* Neuron Signals - Letters/symbols falling into forehead */
+        /* Forehead target: translate(0, -15px) - upper center of avatar */
+        @keyframes neuron-fall-1 {
+          0% { transform: translate(-100px, -80px) translateZ(50px) rotate(0deg) scale(1); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(-30px, -40px) translateZ(20px) rotate(90deg) scale(0.5); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(200deg) scale(0.1); opacity: 0; }
+        }
+        @keyframes neuron-fall-2 {
+          0% { transform: translate(95px, -70px) translateZ(-30px) rotate(0deg) scale(0.9); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(25px, -35px) translateZ(10px) rotate(-120deg) scale(0.45); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(-220deg) scale(0.1); opacity: 0; }
+        }
+        @keyframes neuron-fall-3 {
+          0% { transform: translate(-85px, 60px) translateZ(40px) rotate(0deg) scale(1); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(-20px, -30px) translateZ(15px) rotate(100deg) scale(0.4); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(250deg) scale(0.1); opacity: 0; }
+        }
+        @keyframes neuron-fall-4 {
+          0% { transform: translate(90px, 65px) translateZ(-50px) rotate(0deg) scale(0.85); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(30px, -45px) translateZ(-10px) rotate(-80deg) scale(0.35); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(-180deg) scale(0.1); opacity: 0; }
+        }
+        @keyframes neuron-fall-5 {
+          0% { transform: translate(-90px, 15px) translateZ(30px) rotate(0deg) scale(1); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(-15px, -25px) translateZ(5px) rotate(60deg) scale(0.5); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(160deg) scale(0.1); opacity: 0; }
+        }
+        @keyframes neuron-fall-6 {
+          0% { transform: translate(100px, -20px) translateZ(-20px) rotate(0deg) scale(0.95); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(20px, -30px) translateZ(-5px) rotate(-100deg) scale(0.45); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(-200deg) scale(0.1); opacity: 0; }
+        }
+        @keyframes neuron-fall-7 {
+          0% { transform: translate(-70px, -55px) translateZ(60px) rotate(0deg) scale(1); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(-10px, -35px) translateZ(25px) rotate(80deg) scale(0.55); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(220deg) scale(0.1); opacity: 0; }
+        }
+        @keyframes neuron-fall-8 {
+          0% { transform: translate(75px, 75px) translateZ(-40px) rotate(0deg) scale(0.9); opacity: 0; }
+          15% { opacity: 1; }
+          50% { transform: translate(15px, -40px) translateZ(-15px) rotate(-140deg) scale(0.4); opacity: 1; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(0px, -15px) translateZ(0px) rotate(-260deg) scale(0.1); opacity: 0; }
+        }
+        /* Lines moving into forehead - faster than symbols */
+        @keyframes neuron-line-fly-1 {
+          0% { transform: translate(-120px, -60px) rotate(15deg) scaleX(1); opacity: 0; width: 30px; }
+          20% { opacity: 1; width: 25px; }
+          60% { opacity: 0.9; width: 18px; }
+          100% { transform: translate(0px, -15px) rotate(15deg) scaleX(0); opacity: 0; width: 0px; }
+        }
+        @keyframes neuron-line-fly-2 {
+          0% { transform: translate(110px, -50px) rotate(-25deg) scaleX(1); opacity: 0; width: 28px; }
+          20% { opacity: 1; width: 22px; }
+          60% { opacity: 0.9; width: 15px; }
+          100% { transform: translate(0px, -15px) rotate(-25deg) scaleX(0); opacity: 0; width: 0px; }
+        }
+        @keyframes neuron-line-fly-3 {
+          0% { transform: translate(-95px, 55px) rotate(45deg) scaleX(1); opacity: 0; width: 25px; }
+          20% { opacity: 1; width: 20px; }
+          60% { opacity: 0.9; width: 12px; }
+          100% { transform: translate(0px, -15px) rotate(45deg) scaleX(0); opacity: 0; width: 0px; }
+        }
+        @keyframes neuron-line-fly-4 {
+          0% { transform: translate(100px, 60px) rotate(-50deg) scaleX(1); opacity: 0; width: 22px; }
+          20% { opacity: 1; width: 18px; }
+          60% { opacity: 0.9; width: 10px; }
+          100% { transform: translate(0px, -15px) rotate(-50deg) scaleX(0); opacity: 0; width: 0px; }
+        }
+        .neuron-signal {
+          position: absolute;
+          font-family: 'Courier New', monospace;
+          font-size: 14px;
+          font-weight: bold;
+          color: #00f2ff;
+          text-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff;
+          pointer-events: none;
+          z-index: 50;
+          left: 50%;
+          top: 50%;
+          margin-left: 0;
+          margin-top: -15px;
+        }
+        .neuron-char-1 { animation: neuron-fall-1 0.9s ease-in infinite; animation-delay: 0s; }
+        .neuron-char-2 { animation: neuron-fall-2 1.1s ease-in infinite; animation-delay: 0.15s; }
+        .neuron-char-3 { animation: neuron-fall-3 0.85s ease-in infinite; animation-delay: 0.3s; }
+        .neuron-char-4 { animation: neuron-fall-4 1s ease-in infinite; animation-delay: 0.1s; }
+        .neuron-char-5 { animation: neuron-fall-5 1.05s ease-in infinite; animation-delay: 0.25s; }
+        .neuron-char-6 { animation: neuron-fall-6 0.95s ease-in infinite; animation-delay: 0.4s; }
+        .neuron-char-7 { animation: neuron-fall-7 1.1s ease-in infinite; animation-delay: 0.2s; }
+        .neuron-char-8 { animation: neuron-fall-8 0.9s ease-in infinite; animation-delay: 0.35s; }
+        .neuron-line {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          background: linear-gradient(90deg, transparent, #00f2ff, #00f2ff);
+          box-shadow: 0 0 8px #00f2ff;
+          z-index: 45;
+        }
+        .line-1 { animation: neuron-line-fly-1 0.5s linear infinite; animation-delay: 0.05s; }
+        .line-2 { animation: neuron-line-fly-2 0.55s linear infinite; animation-delay: 0.15s; }
+        .line-3 { animation: neuron-line-fly-3 0.45s linear infinite; animation-delay: 0.1s; }
+        .line-4 { animation: neuron-line-fly-4 0.5s linear infinite; animation-delay: 0.2s; }
+        
+        /* Brain glow pulse */
+        @keyframes brain-pulse {
+          0%, 100% { box-shadow: 0 0 20px rgba(0,242,255,0.3), 0 0 40px rgba(0,242,255,0.1); }
+          50% { box-shadow: 0 0 30px rgba(0,242,255, 0.6), 0 0 60px rgba(0,242,255, 0.3); }
+        }
+        .brain-active {
+          animation: brain-pulse 1s ease-in-out infinite;
         }
       `}</style>
       <aside style={{
@@ -113,18 +318,70 @@ export default function DashboardSidebar() {
               transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
               flexShrink: 0,
               position: 'relative',
+              background: '#0d0e15'
             }}>
-              <img
-                alt="Jenny AI"
-                src="/jenny-image/avatar.jpg"
+              {/* Dual Video Engine — both rendered for seamless swap */}
+              <video
+                ref={video1Ref}
+                src="/jenny-video/1.mp4"
+                preload="auto"
+                playsInline
+                muted
                 style={{
-                  width: '100%', height: '100%',
+                  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
                   objectFit: 'cover', objectPosition: '50% 15%',
+                  opacity: activeVideo === 1 ? 1 : 0,
+                  zIndex: activeVideo === 1 ? 2 : 1,
                   transform: isSpeaking ? 'scale(1.1)' : 'scale(1)',
-                  transition: 'transform 0.5s ease',
                 }}
               />
+              <video
+                ref={video2Ref}
+                src="/jenny-video/2.mp4"
+                preload="auto"
+                playsInline
+                muted
+                onEnded={handleVideo2Ended}
+style={{
+                  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                  objectFit: 'cover', objectPosition: '50% 15%',
+                  opacity: activeVideo === 2 ? 1 : 0,
+                  zIndex: activeVideo === 2 ? 2 : 1,
+                  transform: isSpeaking ? 'scale(1.1)' : 'scale(1)',
+                }}
+              />
+              
+              {!videosReady && (
+                <img
+                  alt="Jenny AI"
+                  src="/jenny-image/avatar.jpg"
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'cover', objectPosition: '50% 15%',
+                    position: 'absolute', top: 0, left: 0, zIndex: 0
+                  }}
+                />
+              )}
             </div>
+            
+            {/* Neuron Signals - Only during Video 1 playback */}
+            {isVideo1Playing && (
+              <>
+                <span className="neuron-signal neuron-char-1">A</span>
+                <span className="neuron-signal neuron-char-2">β</span>
+                <span className="neuron-signal neuron-char-3">Ω</span>
+                <span className="neuron-signal neuron-char-4">π</span>
+                <span className="neuron-signal neuron-char-5">θ</span>
+                <span className="neuron-signal neuron-char-6">λ</span>
+                <span className="neuron-signal neuron-char-7">∫</span>
+                <span className="neuron-signal neuron-char-8">Σ</span>
+                <div className="neuron-line line-1" />
+                <div className="neuron-line line-2" />
+                <div className="neuron-line line-3" />
+                <div className="neuron-line line-4" />
+              </>
+            )}
+            
             {/* Pulse ring when speaking */}
             {isSpeaking && (
               <div style={{

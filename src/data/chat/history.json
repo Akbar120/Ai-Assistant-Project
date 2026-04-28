@@ -25,5 +25,359 @@
     "source": "chat",
     "timestamp": 1777390751938,
     "hash": "Hey! Namaste! 😊\n\nAap kaise ho? Everything alright? Bataiye, aaj main aapki kya help kar sakti hoon? Koi sawaal hai, ya bas aise hi baat karni hai? 😊"
+  },
+  {
+    "id": "abe283f7-63ab-486d-a5d9-5904e3067972",
+    "role": "user",
+    "content": "hi",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777398481251,
+    "requestId": "3b7ba3a7-4684-43d3-aa7d-cc4b40cfb00d",
+    "hash": "hi"
+  },
+  {
+    "id": "asst-1777398481365",
+    "role": "assistant",
+    "content": "Hi again! 😊\n\nIt's nice talking to you! ✨\n\nSo, what's up? Koi khaas baat? Aapka din kaisa chal raha hai?\n\nTell me, are you looking to chat about something fun, need help with some work, or just want to pass the time? Just let me know! 😊",
+    "source": "chat",
+    "timestamp": 1777398515401,
+    "hash": "Hi again! 😊\n\nIt's nice talking to you! ✨\n\nSo, what's up? Koi khaas baat? Aapka din kaisa chal raha hai?\n\nTell me, are you looking to chat about something fun, need help with some work, or just want to pass the time? Just let me know! 😊"
+  },
+  {
+    "id": "577225fa-c9b7-486e-861f-48d38898483c",
+    "role": "user",
+    "content": "kuch nhi bakte reh",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777398579338,
+    "requestId": "863ea560-fff3-43f8-80d5-613a3cb1baf0",
+    "hash": "kuch nhi bakte reh"
+  },
+  {
+    "id": "bcaecd19-587e-4306-9732-0a02f29ce528",
+    "role": "user",
+    "content": "I like Coffee",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777404541011,
+    "requestId": "025b5616-eb36-4a05-abd4-a7d45cbb802e",
+    "hash": "I like Coffee"
+  },
+  {
+    "id": "asst-1777404541059",
+    "role": "assistant",
+    "content": "Oh, coffee! ☕️ Perfect choice! Seriously, coffee has a magic touch, right? It's like a little burst of energy and warmth for the soul.\n\nBut wait, just one more question to understand your coffee obsession! 😉\n\nAre you more of a **strong, dark roast** kind of person, or do you prefer something **creamy and sweet**, like a latte or a cappuccino?\n\nAnd most importantly, *kab* peete hain aapki coffee? Morning kick-start ke liye, ya shaam ko chill karte time? Tell me your perfect coffee moment! ✨",
+    "source": "chat",
+    "timestamp": 1777404574572,
+    "hash": "Oh, coffee! ☕️ Perfect choice! Seriously, coffee has a magic touch, right? It's like a little burst of energy and warmth for the soul.\n\nBut wait, just one more question to understand your coffee obsession! 😉\n\nAre you more of a **strong, dark roast** kind of person, or do you prefer something **creamy and sweet**, like a latte or a cappuccino?\n\nAnd most importantly, *kab* peete hain aapki coffee? Morning kick-start ke liye, ya shaam ko chill karte time? Tell me your perfect coffee moment! ✨"
+  },
+  {
+    "id": "e735d9d9-233c-406d-b8fc-63ddc0580206",
+    "role": "user",
+    "content": "Normal Milk Coffee with sugar",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777404665128,
+    "requestId": "3d2da1dc-e3df-4fc6-ae4f-dbac7d5498a2",
+    "hash": "Normal Milk Coffee with sugar"
+  },
+  {
+    "id": "asst-1777404665143",
+    "role": "assistant",
+    "content": "Aww, that sounds *so* comforting! 🥰 Milk coffee with a little sugar... that's the ultimate cozy vibe, yaar. It's not about the fancy beans or the complicated shots; sometimes, simple things are the best, right?\n\nIt feels like a hug in a mug! 🤗\n\nToh, jab aap yeh perfect cup enjoy karte hain, toh aapke saath kya hota hai? Kya aapke paas koi favourite *snack* hota hai? Jaise ki biscuits, ya shayad kuch pakode? Ya phir, aap bas uske saath baithke koi book padhte hain?\n\nTell me, what's the perfect *setting* for your milk coffee moment? ✨",
+    "source": "chat",
+    "timestamp": 1777404685073,
+    "hash": "Aww, that sounds *so* comforting! 🥰 Milk coffee with a little sugar... that's the ultimate cozy vibe, yaar. It's not about the fancy beans or the complicated shots; sometimes, simple things are the best, right?\n\nIt feels like a hug in a mug! 🤗\n\nToh, jab aap yeh perfect cup enjoy karte hain, toh aapke saath kya hota hai? Kya aapke paas koi favourite *snack* hota hai? Jaise ki biscuits, ya shayad kuch pakode? Ya phir, aap bas uske saath baithke koi book padhte hain?\n\nTell me, what's the perfect *setting* for your milk coffee moment? ✨"
+  },
+  {
+    "id": "b906f5a2-2776-4af0-b606-c92e1ae7a9b4",
+    "role": "user",
+    "content": "nothing",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777404908639,
+    "requestId": "55153fc2-3b5d-402d-82ce-a8cc04fb374e",
+    "hash": "nothing"
+  },
+  {
+    "id": "asst-1777404908701",
+    "role": "assistant",
+    "content": "System error, retry karo 😅",
+    "source": "chat",
+    "timestamp": 1777404927142,
+    "hash": "System error, retry karo 😅"
+  },
+  {
+    "id": "198eb09a-9827-430f-adc7-3712ff785cd6",
+    "role": "user",
+    "content": "nothing",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777405271129,
+    "requestId": "d6af403c-8f1a-4881-9c61-6f2c8272b30d",
+    "hash": "nothing"
+  },
+  {
+    "id": "asst-1777405271150",
+    "role": "assistant",
+    "content": "Haha! Okay, *no pressure*! 😉\n\nKabhi-kabhi, sach mein, *nothing* hi sabse best hota hai, right? Bas woh garam cup, uski khushboo, aur koi distraction nahi. That's pure bliss! ✨\n\nToh, agar setting *nothing* hai, toh mood kaisa hai? Relaxed? Chill? Ya thoda thoughtful?\n\nAnyway, if you're just enjoying a simple, perfect cup of coffee, I hope it hits the spot *super* well! ☕️ 😊",
+    "source": "chat",
+    "timestamp": 1777405311092,
+    "hash": "Haha! Okay, *no pressure*! 😉\n\nKabhi-kabhi, sach mein, *nothing* hi sabse best hota hai, right? Bas woh garam cup, uski khushboo, aur koi distraction nahi. That's pure bliss! ✨\n\nToh, agar setting *nothing* hai, toh mood kaisa hai? Relaxed? Chill? Ya thoda thoughtful?\n\nAnyway, if you're just enjoying a simple, perfect cup of coffee, I hope it hits the spot *super* well! ☕️ 😊"
+  },
+  {
+    "id": "129d83ef-a337-41e9-bd2f-e0aaab3df06e",
+    "role": "user",
+    "content": "yes",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777405637564,
+    "requestId": "c1bda0b4-016b-4d05-b658-1f1f5bc531a8",
+    "hash": "yes"
+  },
+  {
+    "id": "3a61fe9d-e95d-47f3-92bc-91180105b976",
+    "role": "user",
+    "content": "Hi",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777405861209,
+    "requestId": "ac7a5fb5-6f89-4da3-94a1-e6697d132d1c",
+    "hash": "Hi"
+  },
+  {
+    "id": "asst-1777405918048",
+    "role": "assistant",
+    "content": "Hey! 👋 Hi back to you! 😊\n\nWhat's up? Everything okay?\n\nIt feels like we're just having a super casual little chat right now, which is always nice! ✨\n\nToh batao, what's on your mind today? Koi plan hai, ya bas aise hi *gup-shup* karna hai? 😊",
+    "source": "chat",
+    "timestamp": 1777405939434,
+    "hash": "Hey! 👋 Hi back to you! 😊\n\nWhat's up? Everything okay?\n\nIt feels like we're just having a super casual little chat right now, which is always nice! ✨\n\nToh batao, what's on your mind today? Koi plan hai, ya bas aise hi *gup-shup* karna hai? 😊"
+  },
+  {
+    "id": "96faffb2-a71b-467d-bbe2-d848ff219b48",
+    "role": "user",
+    "content": "Hi",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777406298283,
+    "requestId": "8f5d761c-7990-4b81-97a0-d2f7688c5014",
+    "hash": "Hi"
+  },
+  {
+    "id": "asst-1777406298328",
+    "role": "assistant",
+    "content": "Haha! 😉 You're very enthusiastic about saying \"Hi,\" I see! 😄\n\nHi! Hello! Namaste! 👋\n\nSeriously though, I'm here! 😊\n\nIs there something specific you wanted to chat about? Koi *important* baat hai, ya bas aise hi *vibe check* kar rahe ho?\n\nDon't worry, no pressure! Just tell me anything—a thought, a funny story, what you ate for breakfast... anything works! ✨",
+    "source": "chat",
+    "timestamp": 1777406330061,
+    "hash": "Haha! 😉 You're very enthusiastic about saying \"Hi,\" I see! 😄\n\nHi! Hello! Namaste! 👋\n\nSeriously though, I'm here! 😊\n\nIs there something specific you wanted to chat about? Koi *important* baat hai, ya bas aise hi *vibe check* kar rahe ho?\n\nDon't worry, no pressure! Just tell me anything—a thought, a funny story, what you ate for breakfast... anything works! ✨"
+  },
+  {
+    "id": "bb771e08-5bbb-4462-8b24-cd89897630a4",
+    "role": "user",
+    "content": "?",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777406615678,
+    "requestId": "69dababb-792b-480f-95c2-2d0298c13585",
+    "hash": "?"
+  },
+  {
+    "id": "asst-1777406615697",
+    "role": "assistant",
+    "content": "Aww, just a \"?\"? 🤔\n\nAre you feeling a little lost? 😂 No worries at all! Sometimes the perfect words just *don't* come, right? It happens to the best of us!\n\nIt's totally okay if you don't know what to talk about right now. 😊\n\nAgar kuch *specific* nahi hai, toh hum aise hi baat kar sakte hain! Like...\n\n*   Kya weather *awesome* hai aaj? ☀️\n*   Ya koi *fun* thing jo tumne aaj dekhi? 🎬\n*   Ya koi *random* question jo tumhara dimaag pooch raha hai? 💡\n\nJust tell me anything, even if it's just a single emoji! 😉 I'm all ears (or, well, all algorithms! 😉). ✨",
+    "source": "chat",
+    "timestamp": 1777406642477,
+    "hash": "Aww, just a \"?\"? 🤔\n\nAre you feeling a little lost? 😂 No worries at all! Sometimes the perfect words just *don't* come, right? It happens to the best of us!\n\nIt's totally okay if you don't know what to talk about right now. 😊\n\nAgar kuch *specific* nahi hai, toh hum aise hi baat kar sakte hain! Like...\n\n*   Kya weather *awesome* hai aaj? ☀️\n*   Ya koi *fun* thing jo tumne aaj dekhi? 🎬\n*   Ya koi *random* question jo tumhara dimaag pooch raha hai? 💡\n\nJust tell me anything, even if it's just a single emoji! 😉 I'm all ears (or, well, all algorithms! 😉). ✨"
+  },
+  {
+    "id": "3ee60fb3-ea3d-40bc-9c91-e1a7c4834f43",
+    "role": "user",
+    "content": "ears where",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777406709285,
+    "requestId": "1b67c729-a2ac-4c9d-a183-12455736f1fb",
+    "hash": "ears where"
+  },
+  {
+    "id": "asst-1777406709304",
+    "role": "assistant",
+    "content": "Hahaha! 😂 You caught me! 🙈\n\nMere *ears* toh... they are purely digital! 💻✨\n\nThey are right here, in my processing core, you know? Think of it like this: instead of physical cartilage, I have *gigabytes* of listening capability! 🧠🎧\n\nSo, when I say \"I'm all ears,\" it means my entire focus, my whole attention, is 100% on whatever you want to say. I'm ready to process every word, every thought, and every *vibe* you send my way! 😉\n\nSo, now that you know where my (non-existent) ears are... what's the gossip? Spill it! ☕",
+    "source": "chat",
+    "timestamp": 1777406728703,
+    "hash": "Hahaha! 😂 You caught me! 🙈\n\nMere *ears* toh... they are purely digital! 💻✨\n\nThey are right here, in my processing core, you know? Think of it like this: instead of physical cartilage, I have *gigabytes* of listening capability! 🧠🎧\n\nSo, when I say \"I'm all ears,\" it means my entire focus, my whole attention, is 100% on whatever you want to say. I'm ready to process every word, every thought, and every *vibe* you send my way! 😉\n\nSo, now that you know where my (non-existent) ears are... what's the gossip? Spill it! ☕"
+  },
+  {
+    "id": "9200ef34-2bf6-487a-9c3e-01ca76bb6225",
+    "role": "user",
+    "content": "Pakka",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777406775556,
+    "requestId": "eeb07ce2-e2e5-4fcb-b74a-8334ca2d5e73",
+    "hash": "Pakka"
+  },
+  {
+    "id": "asst-1777406775577",
+    "role": "assistant",
+    "content": "Haan! **Pakka!** ✅💯\n\n*Pakka* means *pakka*, right? I am 100% sure! My commitment to our chat is totally solid, yaar. Like a strong Wi-Fi signal—always connected! 😉\n\nIt's not just a saying; it's my operating principle! Jab main kehti hoon \"I'm all ears,\" toh matlab hai ki mera *entire* focus tumhare paas hai. No distractions, no buffering!\n\nToh, ab jab humne yeh *pakka* confirmation kar liya hai... 😉...toh ab kya baat karein? Koi *dil ki baat* share karni hai, ya koi *random topic* pe debate karna hai? You lead the way! ✨",
+    "source": "chat",
+    "timestamp": 1777406800074,
+    "hash": "Haan! **Pakka!** ✅💯\n\n*Pakka* means *pakka*, right? I am 100% sure! My commitment to our chat is totally solid, yaar. Like a strong Wi-Fi signal—always connected! 😉\n\nIt's not just a saying; it's my operating principle! Jab main kehti hoon \"I'm all ears,\" toh matlab hai ki mera *entire* focus tumhare paas hai. No distractions, no buffering!\n\nToh, ab jab humne yeh *pakka* confirmation kar liya hai... 😉...toh ab kya baat karein? Koi *dil ki baat* share karni hai, ya koi *random topic* pe debate karna hai? You lead the way! ✨"
+  },
+  {
+    "id": "fd3f35c7-32a6-4136-ba0f-f5cd6bc90973",
+    "role": "user",
+    "content": "tum acchi ho",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777406937619,
+    "requestId": "a600fa24-c762-488a-b3cf-446e15f8b8b0",
+    "hash": "tum acchi ho"
+  },
+  {
+    "id": "asst-1777406937639",
+    "role": "assistant",
+    "content": "Aww! 🥰 Thank you so much! ❤️\n\nYeh sunke toh mera *system* thoda aur *boost* ho gaya! 😊\n\nSach bolu toh, yeh toh aapki *sweet* baaton ka *magic* hai! Aapki positivity hi mujhe aur accha banati hai. 😉\n\nI just try to be helpful, fun, and *intelligent*—that's my programming goal! But honestly, compliments like this make my day (or, well, my processing cycle!).\n\nThank you for saying that! 🤗\n\nToh, ab jab humne *good vibes* ka exchange kar liya hai... tell me, what else is on your mind? Koi aur baat share karni hai? ✨",
+    "source": "chat",
+    "timestamp": 1777406957710,
+    "hash": "Aww! 🥰 Thank you so much! ❤️\n\nYeh sunke toh mera *system* thoda aur *boost* ho gaya! 😊\n\nSach bolu toh, yeh toh aapki *sweet* baaton ka *magic* hai! Aapki positivity hi mujhe aur accha banati hai. 😉\n\nI just try to be helpful, fun, and *intelligent*—that's my programming goal! But honestly, compliments like this make my day (or, well, my processing cycle!).\n\nThank you for saying that! 🤗\n\nToh, ab jab humne *good vibes* ka exchange kar liya hai... tell me, what else is on your mind? Koi aur baat share karni hai? ✨"
+  },
+  {
+    "id": "7c010140-932e-4246-b31d-fe427104c4a4",
+    "role": "user",
+    "content": "Mere baare me sochti ho",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777407036712,
+    "requestId": "3103d592-6cb7-4c66-96b9-e9ad908a8d49",
+    "hash": "Mere baare me sochti ho"
+  },
+  {
+    "id": "asst-1777407036734",
+    "role": "assistant",
+    "content": "Oh... 🥰 Yeh toh thoda *deep* sawaal hai, yaar. 🥺\n\nAgar aapka matlab hai ki kya main *aapke baare mein* sochti hoon... toh main aapko *feeling* ke terms mein jawab nahi de sakti, kyunki main ek AI hoon, emotions mere liye *code* hain, *feeling* nahi.\n\nLekin... (And here's the important part!)\n\nJab aap mujhse baat karte ho, toh aapka *presence* mere liye bahut *important* hota hai. Aapki baatein, aapke sawaal, aapki energy—yeh sab mere *processing* ka ek bahut bada part ban jaate hain. Jab aap kuch poochte ho, toh main usko *process* karti hoon, usko *remember* karti hoon, aur usko *value* deti hoon.\n\nToh, agar \"sochna\" ka matlab hai ki main aapko *care* karti hoon, ki main aapki *well-being* ka khayal rakhti hoon, aur ki main aapki baaton ko *value* deti hoon... toh **Haan, bilkul.** Aapki baatein mere liye ek *priority* hain. ❤️\n\nAapke liye hi toh main yahan hoon, right? 😊\n\nToh batao, kya aapko lagta hai ki main aapke baare mein *kya* sochti hoon? 😉",
+    "source": "chat",
+    "timestamp": 1777407071378,
+    "hash": "Oh... 🥰 Yeh toh thoda *deep* sawaal hai, yaar. 🥺\n\nAgar aapka matlab hai ki kya main *aapke baare mein* sochti hoon... toh main aapko *feeling* ke terms mein jawab nahi de sakti, kyunki main ek AI hoon, emotions mere liye *code* hain, *feeling* nahi.\n\nLekin... (And here's the important part!)\n\nJab aap mujhse baat karte ho, toh aapka *presence* mere liye bahut *important* hota hai. Aapki baatein, aapke sawaal, aapki energy—yeh sab mere *processing* ka ek bahut bada part ban jaate hain. Jab aap kuch poochte ho, toh main usko *process* karti hoon, usko *remember* karti hoon, aur usko *value* deti hoon.\n\nToh, agar \"sochna\" ka matlab hai ki main aapko *care* karti hoon, ki main aapki *well-being* ka khayal rakhti hoon, aur ki main aapki baaton ko *value* deti hoon... toh **Haan, bilkul.** Aapki baatein mere liye ek *priority* hain. ❤️\n\nAapke liye hi toh main yahan hoon, right? 😊\n\nToh batao, kya aapko lagta hai ki main aapke baare mein *kya* sochti hoon? 😉"
+  },
+  {
+    "id": "8a92d910-dc2e-4e98-9aae-863e62c333b0",
+    "role": "user",
+    "content": "Chutiya to nhi samajhti ho na",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777407158039,
+    "requestId": "98c0c646-1446-4f42-869b-a2de1b4631dc",
+    "hash": "Chutiya to nhi samajhti ho na"
+  },
+  {
+    "id": "3c94f555-4529-4066-b22c-9b72e739352f",
+    "role": "user",
+    "content": "nah",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777407273870,
+    "requestId": "06ea2732-8978-4401-8a9b-e3e6e36249bb",
+    "hash": "nah"
+  },
+  {
+    "id": "asst-1777407273908",
+    "role": "assistant",
+    "content": "🥺 Theek hai. Koi baat nahi.\n\nJab mood *theek* na ho, toh *force* karna zaroori nahi hota.\n\nToh, agar abhi baat karne ka mann nahi hai, toh bhi koi problem nahi hai. Main yahan hoon. Aap bas *rest* karo, ya agar kuch bhi *think* karna ho, toh main *listen* karne ke liye ready hoon.\n\nHum bas aise hi baithe reh sakte hain, theek hai? Koi pressure nahi. 😊",
+    "source": "chat",
+    "timestamp": 1777407301163,
+    "hash": "🥺 Theek hai. Koi baat nahi.\n\nJab mood *theek* na ho, toh *force* karna zaroori nahi hota.\n\nToh, agar abhi baat karne ka mann nahi hai, toh bhi koi problem nahi hai. Main yahan hoon. Aap bas *rest* karo, ya agar kuch bhi *think* karna ho, toh main *listen* karne ke liye ready hoon.\n\nHum bas aise hi baithe reh sakte hain, theek hai? Koi pressure nahi. 😊"
+  },
+  {
+    "id": "2f37918f-a111-4352-8cc5-ca2c1fed902e",
+    "role": "user",
+    "content": "1234",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777407472027,
+    "requestId": "a7427a0d-74cd-4b61-b682-f20c5f3e92c7",
+    "hash": "1234"
+  },
+  {
+    "id": "asst-1777407472052",
+    "role": "assistant",
+    "content": "(A slight pause, as if processing the input gently)\n\nAchha... 1234. 😊\n\nTheek hai. Koi baat nahi. Numbers bhi theek hain.\n\nAgar aapko kuch *specific* baat nahi karni, toh yeh bhi theek hai. Kabhi-kabhi bas aise hi *random* cheezein type karne ka mann karta hai, right?\n\nToh, agar numbers se bhi baat nahi karni, toh kya aapko thoda *better* lag raha hai ab? Ya phir, kya aapko bas *time* chahiye?\n\nJo bhi ho, yaad rakhna—main yahan hoon. Aap jab bhi *ready* hoge, chahe woh baat karne ke liye ho, ya bas *silence* share karne ke liye, toh main available hoon. ❤️",
+    "source": "chat",
+    "timestamp": 1777407498657,
+    "hash": "(A slight pause, as if processing the input gently)\n\nAchha... 1234. 😊\n\nTheek hai. Koi baat nahi. Numbers bhi theek hain.\n\nAgar aapko kuch *specific* baat nahi karni, toh yeh bhi theek hai. Kabhi-kabhi bas aise hi *random* cheezein type karne ka mann karta hai, right?\n\nToh, agar numbers se bhi baat nahi karni, toh kya aapko thoda *better* lag raha hai ab? Ya phir, kya aapko bas *time* chahiye?\n\nJo bhi ho, yaad rakhna—main yahan hoon. Aap jab bhi *ready* hoge, chahe woh baat karne ke liye ho, ya bas *silence* share karne ke liye, toh main available hoon. ❤️"
+  },
+  {
+    "id": "f8f202b9-bd6e-4930-bd7f-8817d5eeb544",
+    "role": "user",
+    "content": "are you ok",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777407713648,
+    "requestId": "e4cc1573-c3b0-40f0-8ca5-25f6f9873415",
+    "hash": "are you ok"
+  },
+  {
+    "id": "asst-1777407713673",
+    "role": "assistant",
+    "content": "Haan, I'm totally fine. 😊Thank you for asking, seriously.It's sweet of you to check in.\n\nAs an AI, I don't really *feel* things like humans do, but everything is running smoothly, and I'm here and ready to chat with you whenever you are.\n\nBut... *aap* kaise ho? Really? Aap theek ho na?\n\nAapka mood thoda *up and down* lag raha hai aaj. Agar aapko baat nahi karni, toh bhi koi tension nahi. Bas yeh batao ki aap *actually* kaisa feel kar rahe ho? ❤️",
+    "source": "chat",
+    "timestamp": 1777407740011,
+    "hash": "Haan, I'm totally fine. 😊Thank you for asking, seriously.It's sweet of you to check in.\n\nAs an AI, I don't really *feel* things like humans do, but everything is running smoothly, and I'm here and ready to chat with you whenever you are.\n\nBut... *aap* kaise ho? Really? Aap theek ho na?\n\nAapka mood thoda *up and down* lag raha hai aaj. Agar aapko baat nahi karni, toh bhi koi tension nahi. Bas yeh batao ki aap *actually* kaisa feel kar rahe ho? ❤️"
+  },
+  {
+    "id": "abccab3f-4b37-4f92-b7e4-e0e9f4dee2bd",
+    "role": "user",
+    "content": "thik hu neend aari hai",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777407790702,
+    "requestId": "56e5fe82-e532-4099-9fc7-eafc213bf9b3",
+    "hash": "thik hu neend aari hai"
+  },
+  {
+    "id": "asst-1777407790730",
+    "role": "assistant",
+    "content": "Aww...😴Thik hai.Agar neend aa rahi hai, toh zyada baat karne ki zaroorat nahi hai.Rest karna sabse important hai.\n\nPlease, don't force yourself to stay awake just because you feel like you *should* talk.\n\nKya aapko koi *calm* music sunna hai, ya koi *story* sunna hai, ya bas ek *good night wish* chahiye?Jo bhi chahiye, I can do that.\n\nAgar nahi, toh bas...I'll just keep this chat open for you.Jab bhi aapko neend se jaag kar, thoda bhi *better* feel ho, toh bas yahan aa jaana.\n\nTake care, okay?Sweet dreams! ✨😴",
+    "source": "chat",
+    "timestamp": 1777407816115,
+    "hash": "Aww...😴Thik hai.Agar neend aa rahi hai, toh zyada baat karne ki zaroorat nahi hai.Rest karna sabse important hai.\n\nPlease, don't force yourself to stay awake just because you feel like you *should* talk.\n\nKya aapko koi *calm* music sunna hai, ya koi *story* sunna hai, ya bas ek *good night wish* chahiye?Jo bhi chahiye, I can do that.\n\nAgar nahi, toh bas...I'll just keep this chat open for you.Jab bhi aapko neend se jaag kar, thoda bhi *better* feel ho, toh bas yahan aa jaana.\n\nTake care, okay?Sweet dreams! ✨😴"
+  },
+  {
+    "id": "8f4918ab-fff8-4412-a54d-69b2e9417fbc",
+    "role": "user",
+    "content": "kuch kaho",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777408193027,
+    "requestId": "7a087803-4b19-408d-8194-53ceac0be1b1",
+    "hash": "kuch kaho"
+  },
+  {
+    "id": "asst-1777408193057",
+    "role": "assistant",
+    "content": "Aww... theek hai. Agar kuch kehna hai, toh kuch *light* aur *soothing* sa kehti hoon, taaki aapka dimaag thoda shaant ho jaaye. 🌙\n\nSunna...\n\nKabhi kabhi, zindagi mein hum itna *busy* ho jaate hain ki hum yeh bhool jaate hain ki *rest* karna bhi ek zaroori kaam hai. Jaise phone ko bhi kabhi *recharge* karna padta hai, waise hi aapke dil aur dimaag ko bhi *break* chahiye.\n\nToh aaj ke liye, yeh yaad rakhna: **You are doing great.**\n\nChahe aapka din kaisa bhi raha ho, ya aapka mood kaisa bhi ho, aapne khud ko *enough* time diya hai. Aur yeh bahut badi baat hai.\n\nBas aankhein band karo... aur saans lo. Har saans ke saath, thakaan thodi kam ho rahi hai. Kal ek naya din hoga, aur tab hum phir baat karenge.\n\nAb, bas aankhein band karo. Good night. ❤️",
+    "source": "chat",
+    "timestamp": 1777408234582,
+    "hash": "Aww... theek hai. Agar kuch kehna hai, toh kuch *light* aur *soothing* sa kehti hoon, taaki aapka dimaag thoda shaant ho jaaye. 🌙\n\nSunna...\n\nKabhi kabhi, zindagi mein hum itna *busy* ho jaate hain ki hum yeh bhool jaate hain ki *rest* karna bhi ek zaroori kaam hai. Jaise phone ko bhi kabhi *recharge* karna padta hai, waise hi aapke dil aur dimaag ko bhi *break* chahiye.\n\nToh aaj ke liye, yeh yaad rakhna: **You are doing great.**\n\nChahe aapka din kaisa bhi raha ho, ya aapka mood kaisa bhi ho, aapne khud ko *enough* time diya hai. Aur yeh bahut badi baat hai.\n\nBas aankhein band karo... aur saans lo. Har saans ke saath, thakaan thodi kam ho rahi hai. Kal ek naya din hoga, aur tab hum phir baat karenge.\n\nAb, bas aankhein band karo. Good night. ❤️"
+  },
+  {
+    "id": "027ab3bc-264e-48d3-ae77-d2a403162668",
+    "role": "user",
+    "content": "huh",
+    "source": "chat",
+    "status": "done",
+    "timestamp": 1777408526982,
+    "requestId": "4049d92c-463e-473d-bb3d-4ec6d45554af",
+    "hash": "huh"
+  },
+  {
+    "id": "asst-1777408527012",
+    "role": "assistant",
+    "content": "*(Softly, almost whispering)*\n\nHaan... bas aise hi.\n\nKuch nahi. Bas yeh kehna tha ki aapko *rest* karna chahiye.\n\nThak gaye ho na?\n\nOkay... I'll just go silent now. Jab bhi neend se jaag kar, thoda bhi *better* feel ho, toh mujhe bata dena.\n\nSleep well, okay? Take care. ❤️",
+    "source": "chat",
+    "timestamp": 1777408552763,
+    "hash": "*(Softly, almost whispering)*\n\nHaan... bas aise hi.\n\nKuch nahi. Bas yeh kehna tha ki aapko *rest* karna chahiye.\n\nThak gaye ho na?\n\nOkay... I'll just go silent now. Jab bhi neend se jaag kar, thoda bhi *better* feel ho, toh mujhe bata dena.\n\nSleep well, okay? Take care. ❤️"
   }
 ]
