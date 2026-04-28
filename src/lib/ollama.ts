@@ -7,7 +7,7 @@ export const TEXT_MODEL = 'gemma4:e4b';
 export const VISION_MODEL = 'gemma4:e4b';
 
 export interface OllamaMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assitant';
   content: string;
   images?: string[]; // base64 encoded
 }
@@ -33,6 +33,7 @@ export async function ollamaChat(options: OllamaChatOptions): Promise<string> {
       model,
       messages: options.messages,
       stream: false,
+      think: true, // ← ENABLE THINKING
       options: {
         temperature: options.temperature ?? 0.3,
         num_predict: options.num_predict ?? 512,
@@ -50,10 +51,11 @@ export async function ollamaChat(options: OllamaChatOptions): Promise<string> {
   }
 
   const data = await resp.json();
+  // Return content only (thinking is separate)
   return data.message?.content || '';
 }
 
-export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenerator<string> {
+export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenerator<{ type: 'thinking' | 'content'; text: string } | string> {
   const model = options.model || DEFAULT_MODEL;
   const resp = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
@@ -62,6 +64,7 @@ export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenera
       model,
       messages: options.messages,
       stream: true,
+      think: true, // ← ENABLE THINKING
       options: {
         temperature: options.temperature ?? 0.3,
         num_predict: options.num_predict ?? 512,
@@ -86,7 +89,14 @@ export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenera
     for (const line of lines) {
       try {
         const json = JSON.parse(line);
-        if (json.message?.content) yield json.message.content;
+        // Yield thinking separately
+        if (json.message?.thinking) {
+          yield { type: 'thinking', text: json.message.thinking };
+        }
+        // Yield content separately
+        if (json.message?.content) {
+          yield { type: 'content', text: json.message.content };
+        }
         if (json.done) return;
       } catch {}
     }
@@ -102,21 +112,53 @@ export async function ollamaChatWithSentenceCallback(
   let fullText = '';
   let sentenceCount = 0;
   let isJsonMode = false;
-  let inThinkMode = false; // 🔥 STATEFUL TRACKER
-  for await (const chunk of ollamaChatStream(options)) {
-    buffer += chunk;
-    fullText += chunk;
 
-    // 1. Update thinking state — Robust check for fragmented tags
-    const lastThink = fullText.lastIndexOf('<think>');
-    const lastEndThink = fullText.lastIndexOf('</think>');
-    inThinkMode = lastThink !== -1 && lastThink > lastEndThink;
-    
-    // 2. FAST STREAM FOR THOUGHTS: Bypass sentence buffering for reasoning blocks
-    if (inThinkMode || chunk.includes('<think>') || chunk.includes('</think>')) {
-      onSentence(chunk, sentenceCount === 0, true);
-      sentenceCount++;
-      buffer = '';
+  for await (const chunk of ollamaChatStream(options)) {
+    // Handle new object format from ollamaChatStream (API with thinking support)
+    if (typeof chunk === 'object' && chunk.type) {
+      const text = chunk.text || '';
+
+      if (chunk.type === 'thinking') {
+        // This is thinking - pass as thought
+        onSentence(text, sentenceCount === 0, true);
+        sentenceCount++;
+        continue;
+      }
+
+      if (chunk.type === 'content') {
+        // This is content - add to buffer for sentence detection
+        buffer += text;
+        fullText += text;
+
+        // Do sentence boundary detection on buffer
+        let lastBoundary = -1;
+        for (let i = 0; i < buffer.length; i++) {
+          if (SENTENCE_END.test(buffer[i])) {
+            const nextChar = buffer[i + 1];
+            if (buffer[i] === '.' && nextChar && /\d/.test(nextChar)) continue;
+            lastBoundary = i;
+          }
+        }
+
+        if (lastBoundary > 0) {
+          const sentence = buffer.slice(0, lastBoundary + 1).trim();
+          buffer = buffer.slice(lastBoundary + 1);
+          if (sentence.length > 3) {
+            onSentence(sentence, sentenceCount === 0, false);
+            sentenceCount++;
+          }
+        }
+      }
+
+      continue;
+    }
+
+    // Legacy: if chunk is still a string (fallback), treat as content
+    if (typeof chunk === 'string') {
+      buffer += chunk;
+      fullText += chunk;
+    } else {
+      // Unknown chunk type - skip
       continue;
     }
 
@@ -143,7 +185,7 @@ export async function ollamaChatWithSentenceCallback(
       buffer = buffer.slice(lastBoundary + 1);
 
       if (sentence.length > 3) {
-        onSentence(sentence, sentenceCount === 0, inThinkMode);
+        onSentence(sentence, sentenceCount === 0, false);
         sentenceCount++;
       }
     }
@@ -151,7 +193,7 @@ export async function ollamaChatWithSentenceCallback(
 
   // Flush remaining buffer if not json
   if (!isJsonMode && buffer.trim().length > 3) {
-    onSentence(buffer.trim(), sentenceCount === 0, inThinkMode);
+    onSentence(buffer.trim(), sentenceCount === 0, false);
   }
 
   return fullText;
@@ -163,7 +205,7 @@ export async function checkOllamaStatus(): Promise<{ running: boolean; models: s
       cache: 'no-store'
     });
     if (!resp.ok) {
-       return { running: false, models: [], error: `HTTP ${resp.status}` };
+      return { running: false, models: [], error: `HTTP ${resp.status}` };
     }
     const data = await resp.json();
     const models = (data.models || []).map((m: { name: string }) => m.name);

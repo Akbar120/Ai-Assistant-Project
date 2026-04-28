@@ -6,34 +6,24 @@
     "source": "chat",
     "hash": "👋 Hey! I'm **Jenny** — tumhari smart aur thodi si flirty AI social media partner. ✨\n\n**Main kya kar sakti hoon?**\n1. 📸 **Image upload karo** (📎 button use karke)\n2. 🧠 Main use **analyze karke** mast captions suggest karungi\n3. 🎯 **Tum choose karo** — Post, Story, ya edit\n4. 🚀 Aur main directly **publish kar dungi**!\n\nAap mujhse bas baatein bhi kar sakte ho, main bore nahi hone dungi! 😉",
     "status": "done",
-    "timestamp": 1777374334985
+    "timestamp": 1777384229971
   },
   {
-    "id": "98efe90f-c5c5-4aa0-a3be-f02b677e5320",
+    "id": "60d98334-d0ff-4692-b110-05e0dff7e37e",
     "role": "user",
-    "content": "Give me 5 short Instagram caption ideas for a warm sunrise photo with an inspirational tone.",
+    "content": "Hi",
     "source": "chat",
     "status": "done",
-    "timestamp": 1777374377972,
-    "requestId": "0c6fcf9d-29fc-46bb-a0b7-c98a71290c58",
-    "hash": "Give me 5 short Instagram caption ideas for a warm sunrise photo with an inspirational tone."
+    "timestamp": 1777384231671,
+    "requestId": "ce3f6576-59d7-46a7-bfa7-fd66d8a0b3ae",
+    "hash": "Hi"
   },
   {
-    "id": "7f454bf8-6633-4264-9e4d-249919874542",
+    "id": "asst-1777384231683",
     "role": "assistant",
-    "content": "❌ Something went wrong: network error",
+    "content": "Hi! 👋 Kya haal hai? 😊\n\nTell me, what can I help you with today? Koi sawaal hai, ya bas aise hi baat karni hai? 😉",
     "source": "chat",
-    "hash": "❌ Something went wrong: network error",
-    "status": "done",
-    "timestamp": 1777374424605,
-    "requestId": "0c6fcf9d-29fc-46bb-a0b7-c98a71290c58"
-  },
-  {
-    "id": "asst-1777374378462",
-    "role": "assistant",
-    "content": "System error, retry karo 😅",
-    "source": "chat",
-    "timestamp": 1777374417058,
-    "hash": "System error, retry karo 😅"
+    "timestamp": 1777384261765,
+    "hash": "Hi! 👋 Kya haal hai? 😊\n\nTell me, what can I help you with today? Koi sawaal hai, ya bas aise hi baat karni hai? 😉"
   }
 ]

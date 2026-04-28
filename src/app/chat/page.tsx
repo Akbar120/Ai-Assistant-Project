@@ -66,14 +66,14 @@ function renderContent(content: string) {
   // 🔥 RESTORE: Thought Process Accordion
   processed = processed.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (_, thoughts) => {
     return `
-      <div class="thought-container" style="margin-bottom:12px; opacity:0.9;">
-        <details class="thought-details" style="background:rgba(255,255,255,0.03); border:1px solid rgba(0,243,255,0.1); border-radius:12px; overflow:hidden; transition:all 0.3s ease;">
-          <summary style="padding:10px 14px; cursor:pointer; font-size:12px; font-weight:600; color:#00f3ff; display:flex; align-items:center; gap:8px; list-style:none; user-select:none;">
-            <i class="fa-solid fa-brain" style="font-size:14px; filter:drop-shadow(0 0 5px rgba(0,243,255,0.5))"></i>
+      <div class="thought-container" style="margin: 16px 0; opacity: 1;">
+        <details class="thought-details" style="background: linear-gradient(135deg, rgba(0,243,255,0.05) 0%, rgba(139,132,255,0.05) 100%); border: 1px solid rgba(0,243,255,0.2); border-radius: 16px; overflow: hidden; transition: all 0.3s ease;">
+          <summary style="padding: 14px 18px; cursor: pointer; font-size: 12px; font-weight: 600; color: #00f3ff; display: flex; align-items: center; gap: 10px; list-style: none; user-select: none; transition: background 0.2s ease;" onmouseover="this.style.background='rgba(0,243,255,0.1)'" onmouseout="this.style.background='transparent'">
+            <i class="fa-solid fa-brain" style="font-size: 14px; filter: drop-shadow(0 0 8px rgba(0,243,255,0.6))"></i>
             <span>Thought Process</span>
-            <i class="fa-solid fa-chevron-down" style="margin-left:auto; font-size:10px; transition:transform 0.3s;"></i>
+            <i class="fa-solid fa-chevron-down" style="margin-left: auto; font-size: 10px; transition: transform 0.3s; color: #8b84ff;"></i>
           </summary>
-          <div style="padding:0 14px 14px 14px; font-size:13px; line-height:1.6; color:#9ca3af; border-top:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.2);">
+          <div style="padding: 0 18px 18px 18px; font-size: 13px; line-height: 1.7; color: #a1a1aa; border-top: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.25);">
             ${thoughts.trim().replace(/\n/g, '<br/>')}
           </div>
         </details>
@@ -389,6 +389,7 @@ export default function ChatPage() {
   // ─── Thinking State (Derived + Delayed to prevent flicker) ────────────────
   const isThinking = loading || processingTaskLabel !== null || (pendingRequests?.current?.size || 0) > 0;
   const [showThinking, setShowThinking] = useState(false);
+  const [streamingThought, setStreamingThought] = useState('');
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -779,6 +780,8 @@ export default function ChatPage() {
       const decoder = new TextDecoder();
       let fullReply = '';
       let streamBuffer = '';
+      let thinkingBuffer = ''; // Accumulate thinking text separately
+      let firstContentReceived = false; // Track if we've started receiving content
       let lastSpokenIndex = 0; // 🔥 TTS TRACKER
 
       while (true) {
@@ -800,23 +803,32 @@ export default function ChatPage() {
             const data = JSON.parse(dataStr);
             if (!data) continue;
             
-            if (data.type === 'sentence' && data.text) {
-              fullReply += data.text;
-
-              // ─── DEFINITIVE METADATA FILTER ───
-              // If the backend says it's a thought, we update the message but skip the voice engine.
+              if (data.type === 'sentence' && data.text) {
+              // Accumulate ALL text for the final message
               if (data.isThought) {
-                handleAssistantResponse(data.text, 'primary', internalId, { id: assistantMessageId, content: fullReply, silent: true }, false);
+                // THOUGHT: Update thinking buffer and UI bubble, but DON'T create chat card yet
+                setStreamingThought(prev => prev + data.text);
+                thinkingBuffer += data.text; // Accumulate for final message
+                // Do NOT call handleAssistantResponse - no premature chat card!
               } else {
-                // For actual replies, we use the context-aware buffer to ensure 
-                // smooth sentence-by-sentence verbalization.
-                // We scrub any thought blocks from the 'clean' version to calculate what to speak.
-                const cleanReply = fullReply.replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '').trim();
-                
+                // CONTENT: This is the actual reply
+                if (!firstContentReceived) {
+                  // First content chunk: wrap thinking with </think> tags
+                  fullReply = `<think>${thinkingBuffer}</think>${data.text}`;
+                  firstContentReceived = true;
+                  thinkingBuffer = ''; // Clear thinking buffer
+                } else {
+                  fullReply += data.text;
+                }
+
+                // DEBUG: Log what's happening with isThought
+                console.log('[DEBUG]', { isThought: data.isThought, textPreview: data.text.substring(0, 50) });
+
                 // Update the UI with the full text (including thoughts for the accordion)
                 handleAssistantResponse(data.text, 'primary', internalId, { id: assistantMessageId, content: fullReply, silent: true }, false);
 
                 // Speak only the NEW parts of the clean reply
+                const cleanReply = fullReply.replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '').trim();
                 if (cleanReply.length > lastSpokenIndex) {
                   const newText = cleanReply.substring(lastSpokenIndex);
                   if (newText.trim()) {
@@ -831,9 +843,11 @@ export default function ChatPage() {
             } else if (data.type === 'full') {
               // Finalize with full action state
               if (data.mode) setActiveMode(data.mode);
+
+              // Use fullReply (has complete text with think tags for dropdown)
               handleAssistantResponse(data.reply || '', 'primary', internalId, { 
                 id: assistantMessageId, 
-                content: data.reply || '',
+                content: fullReply, // ← Now includes think tags for dropdown
                 isPosting: data.action === 'post',
                 postResult: data.action === 'post' ? data.result : undefined,
                 silent: true
@@ -863,8 +877,8 @@ export default function ChatPage() {
         setLoading(false);
         setProcessingTaskLabel(null);
       }
-      // Always cleanup pendingRequests so isThinking indicator turns off
       pendingRequests.current.delete(internalId);
+      setStreamingThought('');
     }
   };
   // 🔑 Key: Keep the ref in sync so the IPC voice handler always uses the latest function
@@ -970,7 +984,7 @@ export default function ChatPage() {
                 return messages.map((msg) => {
                   const isSpeakingThis = isSpeaking && msg.id === lastAiId && msg.role === 'assistant';
                   return (
-                <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'gap-3'}`}>
+                <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'gap-3'} chat-message-enter`}>
                   
                   {msg.role === 'assistant' && (
                     <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', overflow: 'hidden', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1045,13 +1059,22 @@ export default function ChatPage() {
                   <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', overflow: 'hidden', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <img alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 15%' }} src="/jenny-image/avatar.jpg" />
                   </div>
-                  <div className="chat-bubble-processing" style={{ padding: '12px 16px', maxWidth: 400, display: 'flex', alignItems: 'center', gap: 12 }}>
-                     <span style={{ color: '#d1d5db', fontSize: 14 }}>{processingTaskLabel || 'Jenny is thinking...'}</span>
-                     <div style={{ display: 'flex', gap: 4 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite' }}></div>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.2s' }}></div>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.4s' }}></div>
-                     </div>
+                  <div className="chat-bubble-processing" style={{ padding: '12px 16px', maxWidth: 640 }}>
+                     {streamingThought ? (
+                       <div style={{ color: '#9ca3af', fontSize: 12, fontStyle: 'italic', lineHeight: 1.5, maxHeight: 200, overflowY: 'auto' }}>
+                         {streamingThought}
+                         <span style={{ animation: 'blink 1s infinite', color: '#00f3ff', marginLeft: 4 }}>|</span>
+                       </div>
+                     ) : (
+                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                         <span style={{ color: '#d1d5db', fontSize: 14 }}>{processingTaskLabel || 'Jenny is thinking...'}</span>
+                         <div style={{ display: 'flex', gap: 4 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite' }}></div>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.2s' }}></div>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.4s' }}></div>
+                         </div>
+                       </div>
+                     )}
                   </div>
                 </div>
               )}

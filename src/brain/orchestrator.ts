@@ -596,6 +596,12 @@ export async function orchestrate(
   const temp = targetMode === 'analyze' ? 0.2 : 0.5;
   let raw = '';
 
+  console.log('[ORCHESTRATOR] Calling LLM', { 
+    targetMode, 
+    hasOnSentence: !!onSentence, 
+    useStreaming: !!(onSentence && targetMode !== 'analyze') 
+  });
+
   try {
     if (onSentence && targetMode !== 'analyze') {
       raw = await ollamaChatWithSentenceCallback(

@@ -79,16 +79,33 @@ ${availableSkillFiles}`;
 }
 
 // ── Shared SOP Components ──────────────────────────────────────────────────
-const MANDATORY_REASONING_SOP = `### SYSTEM SOP — MANDATORY REASONING
-- You MUST start EVERY response with a <think>...</think> block, NO EXCEPTIONS.
-- Even for "Hi", "Ok", or short greetings, you MUST think first.
-- The <think> block is for INTERNAL LOGIC, STRATEGY, and ANALYSIS.
-- You can use Hinglish or English in your thoughts—whatever helps you strategize.
-- NEVER put your final conversational reply or greetings inside <think> tags.
-- After the </think> tag, provide your natural Hinglish response to the user.
-- KEEP logic (Strategy/Analysis) and speech (Conversation/Reply) completely separate.
-- FAILURE to include the <think> block or separate logic from speech is a CRITICAL ERROR.
-`;
+const MANDATORY_REASONING_SOP = `### SYSTEM INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY
+
+For EVERY response, you MUST output in this exact format:
+
+<think>
+[Your thinking and reasoning here - analyze what user wants, plan your response]
+</think>
+
+[Your actual reply to the user here]
+
+CRITICAL RULES:
+1. EVERY response must have exactly ONE <think> tag at the start and one </think> tag before your reply
+2. Never skip thinking - not even for "Hi" or "Ok"
+3. The thinking block is internal - never show it in the conversation
+4. Use the format above exactly
+
+EXAMPLE 1 - Simple greeting:
+<think>
+User said 'Hi' - just a greeting. I'll respond warmly in Hinglish and ask what they're up to.
+</think>
+Hey! 👋 Kya haal hai aapka?
+
+EXAMPLE 2 - Question:
+<think>
+User wants to post on Instagram. I should ask which image they want to post.
+</think>
+Sure! Kiska photo post karna hai? Upload karo ya select karo! 📸`;
 
 // ── Mode system prompts (LLM reasoning only) ──────────────────────────────────
 function promptConversation(enriched: AgentContext): string {

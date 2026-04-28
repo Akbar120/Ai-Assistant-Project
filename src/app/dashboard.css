@@ -42,22 +42,49 @@
 }
 
 .chat-bubble-user {
-  background: rgba(20, 22, 33, 0.8);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 12px 12px 0 12px;
+  background: rgba(20, 22, 33, 0.85);
+  border: 1px solid rgba(0, 243, 255, 0.15);
+  border-radius: 18px 18px 4px 18px;
+  padding: 14px 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
 }
 
 .chat-bubble-ai {
-  background: rgba(20, 22, 33, 0.8);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 12px 12px 12px 0;
+  background: rgba(20, 22, 33, 0.85);
+  border: 1px solid rgba(139, 132, 255, 0.15);
+  border-radius: 18px 18px 18px 4px;
+  padding: 14px 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.chat-bubble-ai.speaking {
+  border-color: rgba(0, 243, 255, 0.5);
+  box-shadow: 0 0 25px rgba(0, 243, 255, 0.2), 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .chat-bubble-processing {
-  background: linear-gradient(90deg, rgba(20,22,33,0.9), rgba(0,243,255,0.1));
+  background: linear-gradient(90deg, rgba(20,22,33,0.95), rgba(0,243,255,0.15));
   border: 1px solid rgba(0,243,255,0.5);
-  box-shadow: 0 0 15px rgba(0,243,255,0.3);
+  box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
   border-radius: 20px;
+  padding: 14px 20px;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-message-enter {
+  animation: fadeSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .action-btn {

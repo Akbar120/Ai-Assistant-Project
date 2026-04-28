@@ -1644,3 +1644,9 @@ textarea.input {
 .thought-details summary::-webkit-details-marker {
   display: none;
 }
+
+/* ─── Blink Cursor for Streaming ───────────────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
