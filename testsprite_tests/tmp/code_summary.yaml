@@ -1,0 +1,85 @@
+version: "2"
+type: frontend
+tech_stack:
+  - language: TypeScript
+  - framework: Next.js
+  - app_type: Electron
+  - database: PocketBase
+  - ui_library: Tailwind CSS
+  - other: Playwright, Ollama, Discord.js
+routes:
+  - path: /
+    file: src/app/page.tsx
+    auth_required: false
+    description: Landing page or redirect
+  - path: /login
+    file: src/app/login/page.tsx
+    auth_required: false
+    description: User login page
+  - path: /dashboard
+    file: src/app/dashboard/page.tsx
+    auth_required: true
+    description: Main dashboard overview
+  - path: /agents
+    file: src/app/agents/page.tsx
+    auth_required: true
+    description: Agent management page
+  - path: /chat
+    file: src/app/chat/page.tsx
+    auth_required: true
+    description: AI Chat interface
+  - path: /tasks
+    file: src/app/tasks/page.tsx
+    auth_required: true
+    description: Task management and status
+  - path: /notifications
+    file: src/app/notifications/page.tsx
+    auth_required: true
+    description: User notifications and alerts
+  - path: /settings
+    file: src/app/settings/page.tsx
+    auth_required: true
+    description: System and user settings
+features:
+  - name: User Authentication
+    description: Login and session management
+    files:
+      - src/app/login/page.tsx
+      - src/app/api/login/route.ts
+    entry_route: /login
+    user_interactions:
+      - Fill email/username
+      - Fill password
+      - Click login button
+    api_calls:
+      - method: POST
+        endpoint: /api/login
+    auth_required: false
+  - name: Agent Management
+    description: View and control AI agents
+    files:
+      - src/app/agents/page.tsx
+      - src/app/api/agents/route.ts
+    entry_route: /agents
+    user_interactions:
+      - View list of agents
+      - Click to see agent details
+      - Start/Stop agents
+    api_calls:
+      - method: GET
+        endpoint: /api/agents
+    auth_required: true
+  - name: Task Execution
+    description: Monitor and manage automated tasks
+    files:
+      - src/app/tasks/page.tsx
+      - src/app/api/tasks/route.ts
+    entry_route: /tasks
+    user_interactions:
+      - View active tasks
+      - Review task logs
+    api_calls:
+      - method: GET
+        endpoint: /api/tasks
+    auth_required: true
+known_limitations: []

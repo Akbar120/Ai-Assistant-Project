@@ -2,6 +2,8 @@ import { chromium, BrowserContext, Page } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const SESSIONS_DIR = path.join(process.cwd(), 'sessions');
 
 function ensureSessionsDir() {
@@ -78,7 +80,7 @@ export async function postToTwitter(options: TwitterPostOptions): Promise<{ succ
       const fileInput = await page.$('input[type="file"]');
       if (fileInput) {
         await fileInput.setInputFiles(options.mediaFiles);
-        await page.waitForTimeout(3000);
+        await wait(3000);
       }
     }
 
@@ -166,12 +168,12 @@ export async function postToInstagram(options: InstagramPostOptions): Promise<{ 
     // ── Load Instagram home ──────────────────────────────────────────────────
     await page.goto('https://www.instagram.com/');
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(3500);
+    await wait(3500);
     await screenshot('01-home');
 
     // ── Dismiss popups (text-based only — no blind coordinate clicks) ─────────
     for (let i = 0; i < 2; i++) {
-      await page.waitForTimeout(800);
+      await wait(800);
       for (const t of ['Not Now', 'Not now', 'Cancel']) {
         const loc = page.getByRole('button', { name: t, exact: true });
         if (await loc.count() > 0) await loc.first().click().catch(() => {});
@@ -184,7 +186,7 @@ export async function postToInstagram(options: InstagramPostOptions): Promise<{ 
     const closeSvg = page.locator('svg[aria-label="Close"]');
     if (await closeSvg.count() > 0) {
       await closeSvg.first().click({ force: true }).catch(() => {});
-      await page.waitForTimeout(500);
+      await wait(500);
     }
 
     await screenshot('02-after-popups');
@@ -237,7 +239,7 @@ export async function postToInstagram(options: InstagramPostOptions): Promise<{ 
       throw new Error('Could not find or click the Create/New post button in the sidebar.');
     }
 
-    await page.waitForTimeout(1500);
+    await wait(1500);
     await screenshot('03-after-create-click');
 
     // ── Handle "Post / Reel / Story" submenu if it appears ───────────────────
@@ -249,7 +251,7 @@ export async function postToInstagram(options: InstagramPostOptions): Promise<{ 
     for (const loc of postMenuOptions) {
       if (await loc.count() > 0) {
         await loc.first().click({ force: true }).catch(() => {});
-        await page.waitForTimeout(1000);
+        await wait(1000);
         break;
       }
     }
@@ -269,7 +271,7 @@ export async function postToInstagram(options: InstagramPostOptions): Promise<{ 
     // ── Upload the file ───────────────────────────────────────────────────────
     const fileChooser = await fileChooserPromise;
     await fileChooser.setFiles(options.mediaFile);
-    await page.waitForTimeout(4000); // let IG process/crop preview
+    await wait(4000); // let IG process/crop preview
     await screenshot('05-after-upload');
 
     // ── Click Next through the wizard (Crop → Filter/Edit → Caption) ──────────
@@ -287,11 +289,11 @@ export async function postToInstagram(options: InstagramPostOptions): Promise<{ 
     };
 
     await clickNextBtn();
-    await page.waitForTimeout(2000);
+    await wait(2000);
     await screenshot('06-after-next1');
 
     await clickNextBtn();
-    await page.waitForTimeout(2000);
+    await wait(2000);
     await screenshot('07-after-next2');
 
     // ── Fill in the caption ───────────────────────────────────────────────────
@@ -311,7 +313,7 @@ export async function postToInstagram(options: InstagramPostOptions): Promise<{ 
       }
     }
 
-    await page.waitForTimeout(1000);
+    await wait(1000);
     await screenshot('08-before-share');
 
     // ── Click the Share button ────────────────────────────────────────────────

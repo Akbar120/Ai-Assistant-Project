@@ -449,7 +449,7 @@ export async function orchestrate(
   history: OllamaMessage[],
   enriched: AgentContext,
   images?: string[],
-  onSentence?: (sentence: string) => void,
+  onSentence?: (sentence: string, isFirst: boolean, isThought?: boolean) => void,
   onMode?: (mode: JennyMode) => void,
   forceNextMode?: JennyMode
 ): Promise<OrchestratorResult> {
@@ -634,7 +634,7 @@ export async function orchestrate(
     if (/cannot execute/i.test(raw)) {
       resetAfterExecution();
       const rejectMsg = 'Yeh kaam main abhi nahi kar sakti. Kuch aur batao? 😊';
-      if (onSentence) onSentence(rejectMsg);
+      if (onSentence) onSentence(rejectMsg, true);
       return { action: 'conversation', data: {}, reply: rejectMsg, mode: 'conversation' };
     }
     return orchestrate(message, history, enriched, images, onSentence, onMode, 'planning');

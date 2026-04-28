@@ -61,7 +61,27 @@ const PLATFORMS = [
 // ─── Helper: render markdown-like content ─────────────────────────────────────
 
 function renderContent(content: string) {
-  return content
+  let processed = content;
+  
+  // 🔥 RESTORE: Thought Process Accordion
+  processed = processed.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (_, thoughts) => {
+    return `
+      <div class="thought-container" style="margin-bottom:12px; opacity:0.9;">
+        <details class="thought-details" style="background:rgba(255,255,255,0.03); border:1px solid rgba(0,243,255,0.1); border-radius:12px; overflow:hidden; transition:all 0.3s ease;">
+          <summary style="padding:10px 14px; cursor:pointer; font-size:12px; font-weight:600; color:#00f3ff; display:flex; align-items:center; gap:8px; list-style:none; user-select:none;">
+            <i class="fa-solid fa-brain" style="font-size:14px; filter:drop-shadow(0 0 5px rgba(0,243,255,0.5))"></i>
+            <span>Thought Process</span>
+            <i class="fa-solid fa-chevron-down" style="margin-left:auto; font-size:10px; transition:transform 0.3s;"></i>
+          </summary>
+          <div style="padding:0 14px 14px 14px; font-size:13px; line-height:1.6; color:#9ca3af; border-top:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.2);">
+            ${thoughts.trim().replace(/\n/g, '<br/>')}
+          </div>
+        </details>
+      </div>
+    `;
+  });
+
+  return processed
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`(.*?)`/g, '<code style="background:rgba(108,99,255,0.15);padding:2px 6px;border-radius:4px;font-size:13px;color:#8b84ff">$1</code>')
@@ -301,7 +321,7 @@ export default function ChatPage() {
     setIsMuted,
     isSpeaking,
   } = useChatStore();
-  const { handleUserRequest, handleAssistantResponse, stopAllTTS, pendingRequests } = useMessagePipeline();
+  const { handleUserRequest, handleAssistantResponse, stopAllTTS, pendingRequests, maybeSpeak } = useMessagePipeline();
   const { setListening } = useVoiceEngine(); // Deaf Mode
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -759,6 +779,7 @@ export default function ChatPage() {
       const decoder = new TextDecoder();
       let fullReply = '';
       let streamBuffer = '';
+      let lastSpokenIndex = 0; // 🔥 TTS TRACKER
 
       while (true) {
         const { value, done } = await reader.read();
@@ -780,9 +801,30 @@ export default function ChatPage() {
             if (!data) continue;
             
             if (data.type === 'sentence' && data.text) {
-              // 🔥 PRO-LEVEL TTS: Play sentence immediately
-              handleAssistantResponse(data.text, 'primary', internalId, { id: assistantMessageId, content: (fullReply || '') + data.text }, false);
-              fullReply += (data.text || '') + ' ';
+              fullReply += data.text;
+
+              // ─── DEFINITIVE METADATA FILTER ───
+              // If the backend says it's a thought, we update the message but skip the voice engine.
+              if (data.isThought) {
+                handleAssistantResponse(data.text, 'primary', internalId, { id: assistantMessageId, content: fullReply, silent: true }, false);
+              } else {
+                // For actual replies, we use the context-aware buffer to ensure 
+                // smooth sentence-by-sentence verbalization.
+                // We scrub any thought blocks from the 'clean' version to calculate what to speak.
+                const cleanReply = fullReply.replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '').trim();
+                
+                // Update the UI with the full text (including thoughts for the accordion)
+                handleAssistantResponse(data.text, 'primary', internalId, { id: assistantMessageId, content: fullReply, silent: true }, false);
+
+                // Speak only the NEW parts of the clean reply
+                if (cleanReply.length > lastSpokenIndex) {
+                  const newText = cleanReply.substring(lastSpokenIndex);
+                  if (newText.trim()) {
+                    maybeSpeak(newText, 'primary', false);
+                    lastSpokenIndex = cleanReply.length;
+                  }
+                }
+              }
             } else if (data.type === 'mode') {
               // Early mode transition for instant UI sync
               if (data.mode) setActiveMode(data.mode);
@@ -793,7 +835,8 @@ export default function ChatPage() {
                 id: assistantMessageId, 
                 content: data.reply || '',
                 isPosting: data.action === 'post',
-                postResult: data.action === 'post' ? data.result : undefined
+                postResult: data.action === 'post' ? data.result : undefined,
+                silent: true
               }, false);
             } else if (data.type === 'error') {
               throw new Error(data.message || 'Server error in stream');

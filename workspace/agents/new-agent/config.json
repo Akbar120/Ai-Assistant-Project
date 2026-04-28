@@ -1,0 +1,32 @@
+{
+  "id": "agent_6b41k94",
+  "name": "New Agent",
+  "role": "Assistant",
+  "goal": "- Successfully define, register, and execute a functional \"Basic Text Analyzer Skill\" that accepts text and returns word count, character count, and unique word count.",
+  "folder": "new-agent",
+  "status": "running",
+  "mode": "configuring",
+  "cycleCount": 0,
+  "lastCycle": {},
+  "logs": [
+    {
+      "id": "spawn_0",
+      "type": "SYSTEM",
+      "timestamp": "6:51:16 PM",
+      "title": "Agent Spawned",
+      "message": "Agent New Agent spawned. Initializing provisioning pipeline..."
+    }
+  ],
+  "maxTokens": 4096,
+  "useRotorQuant": false,
+  "skills": [],
+  "tools": [
+    "to request before execution: none"
+  ],
+  "isAutonomous": false,
+  "pollingInterval": 60000,
+  "sessionMemory": [],
+  "allowedTools": [
+    "to request before execution: none"
+  ]
+}

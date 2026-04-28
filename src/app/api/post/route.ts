@@ -15,8 +15,14 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData();
 
   const caption = formData.get('caption') as string;
-  const platforms = JSON.parse(formData.get('platforms') as string || '[]');
-  const discordConfig = JSON.parse(formData.get('discordConfig') as string || 'null');
+  let platforms: string[] = [];
+  let discordConfig = null;
+  try {
+    platforms = JSON.parse(formData.get('platforms') as string || '[]');
+    discordConfig = JSON.parse(formData.get('discordConfig') as string || 'null');
+  } catch (e) {
+    return NextResponse.json({ success: false, error: 'Invalid form data format' }, { status: 400 });
+  }
   const files: File[] = [];
   const savedFilePaths: string[] = [];
 

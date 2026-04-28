@@ -316,8 +316,8 @@ export async function POST(req: NextRequest) {
               history || [],
               enriched,
               images?.length > 0 ? images : undefined,
-              (sentence) => {
-                send({ type: 'sentence', text: sentence });
+              (sentence: string, isFirst: boolean, isThought?: boolean) => {
+                send({ type: 'sentence', text: sentence, isThought: !!isThought });
               },
               (mode) => {
                 send({ type: 'mode', mode });

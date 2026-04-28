@@ -22,6 +22,7 @@ interface PostResult {
 export default function DashboardPage() {
   const [caption, setCaption] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [objectUrls, setObjectUrls] = useState<string[]>([]);
   const [platforms, setPlatforms] = useState({ discord: false, twitter: false, instagram: false });
   const [dragging, setDragging] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -30,7 +31,15 @@ export default function DashboardPage() {
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduleTime, setScheduleTime] = useState('');
 
-  // Discord state
+  // Manage object URLs to prevent memory leaks
+  useEffect(() => {
+    const urls = files.map(f => URL.createObjectURL(f));
+    setObjectUrls(urls);
+    
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [files]);
   const [guilds, setGuilds] = useState<DiscordGuild[]>([]);
   const [selectedGuild, setSelectedGuild] = useState('');
   const [channels, setChannels] = useState<DiscordChannel[]>([]);

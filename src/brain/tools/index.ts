@@ -12,8 +12,8 @@ import { execute_agent_notify } from './agent_notify';
 
 import { appendLog, updateTask, getTask } from '../taskService';
 
-// Module Reload Tag: 2026-04-23T13:45:00
-console.log('[Tools] Loading tool definition version 2.1 (Direct execution enabled)');
+// Module Reload Tag: 2026-04-28T12:30:00
+console.log('[Tools] Loading tool definition version 2.3');
 
 export async function runTool(tool: string, args: any, requester: string = 'orchestrator', agentId?: string): Promise<any> {
   // Use refined permission guard for balanced security and functionality

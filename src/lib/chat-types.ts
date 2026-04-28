@@ -17,4 +17,6 @@ export interface ChatMessage {
   file?: ChatMessageFile;
   isPosting?: boolean;
   postResult?: { success: boolean; results?: Record<string, { success: boolean; error?: string }> };
+  silent?: boolean;
+  isThought?: boolean;
 }

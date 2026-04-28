@@ -4,6 +4,7 @@
 const OLLAMA_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_MODEL = 'gemma4:e4b';
 export const TEXT_MODEL = 'gemma4:e4b';
+export const VISION_MODEL = 'gemma4:e4b';
 
 export interface OllamaMessage {
   role: 'system' | 'user' | 'assistant';
@@ -94,18 +95,31 @@ export async function* ollamaChatStream(options: OllamaChatOptions): AsyncGenera
 
 export async function ollamaChatWithSentenceCallback(
   options: OllamaChatOptions,
-  onSentence: (sentence: string, isFirst: boolean) => void
+  onSentence: (sentence: string, isFirst: boolean, isThought?: boolean) => void
 ): Promise<string> {
   const SENTENCE_END = /[.!?।\n]/;
   let buffer = '';
   let fullText = '';
   let sentenceCount = 0;
   let isJsonMode = false;
-
+  let inThinkMode = false; // 🔥 STATEFUL TRACKER
   for await (const chunk of ollamaChatStream(options)) {
     buffer += chunk;
     fullText += chunk;
+
+    // 1. Update thinking state — Robust check for fragmented tags
+    const lastThink = fullText.lastIndexOf('<think>');
+    const lastEndThink = fullText.lastIndexOf('</think>');
+    inThinkMode = lastThink !== -1 && lastThink > lastEndThink;
     
+    // 2. FAST STREAM FOR THOUGHTS: Bypass sentence buffering for reasoning blocks
+    if (inThinkMode || chunk.includes('<think>') || chunk.includes('</think>')) {
+      onSentence(chunk, sentenceCount === 0, true);
+      sentenceCount++;
+      buffer = '';
+      continue;
+    }
+
     // Detect if LLM is outputting JSON tool call instead of conversation
     if (!isJsonMode && (fullText.trimStart().startsWith('{') || fullText.trimStart().startsWith('```json') || fullText.trimStart().startsWith('`json'))) {
       isJsonMode = true;
@@ -129,7 +143,7 @@ export async function ollamaChatWithSentenceCallback(
       buffer = buffer.slice(lastBoundary + 1);
 
       if (sentence.length > 3) {
-        onSentence(sentence, sentenceCount === 0);
+        onSentence(sentence, sentenceCount === 0, inThinkMode);
         sentenceCount++;
       }
     }
@@ -137,7 +151,7 @@ export async function ollamaChatWithSentenceCallback(
 
   // Flush remaining buffer if not json
   if (!isJsonMode && buffer.trim().length > 3) {
-    onSentence(buffer.trim(), sentenceCount === 0);
+    onSentence(buffer.trim(), sentenceCount === 0, inThinkMode);
   }
 
   return fullText;

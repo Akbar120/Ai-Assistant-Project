@@ -1630,3 +1630,17 @@ textarea.input {
   0% { transform: scale(1); opacity: 0.8; }
   100% { transform: scale(1.6); opacity: 0; }
 }
+
+/* ─── Thought Process Styles ───────────────────────────────────────────────── */
+.thought-details[open] summary i.fa-chevron-down {
+  transform: rotate(180deg);
+}
+
+.thought-details:hover {
+  border-color: rgba(0,243,255,0.3) !important;
+  box-shadow: 0 0 15px rgba(0,243,255,0.05);
+}
+
+.thought-details summary::-webkit-details-marker {
+  display: none;
+}

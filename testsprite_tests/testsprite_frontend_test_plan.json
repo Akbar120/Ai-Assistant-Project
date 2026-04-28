@@ -1,0 +1,923 @@
+[
+  {
+    "id": "TC001",
+    "title": "Log in and access the dashboard",
+    "description": "Verifies a user can log in from the login page and land on the dashboard with an authenticated session.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email/username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user lands on the dashboard"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Schedule a post and verify it appears in tasks",
+    "description": "Verifies a user can compose a post, select platforms, add media, schedule it, and then see the scheduled job listed on the tasks page.",
+    "category": "Dashboard: Compose & Schedule Posts",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email/username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Start a new post composition"
+      },
+      {
+        "type": "action",
+        "description": "Fill a caption into the post composer"
+      },
+      {
+        "type": "action",
+        "description": "Select at least one target platform"
+      },
+      {
+        "type": "action",
+        "description": "Add media to the post using the in-app media picker"
+      },
+      {
+        "type": "action",
+        "description": "Set a valid future schedule time"
+      },
+      {
+        "type": "action",
+        "description": "Confirm scheduling"
+      },
+      {
+        "type": "action",
+        "description": "Click to open the tasks page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the newly scheduled post is listed in tasks"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the scheduled item shows a scheduled time"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Generate a caption in chat and apply it in the dashboard composer",
+    "description": "Verifies a user can get caption ideas from the AI chat and apply a suggestion into a new post composition on the dashboard.",
+    "category": "AI Chat Assistant",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email/username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /chat"
+      },
+      {
+        "type": "action",
+        "description": "Start a new conversation with the AI assistant"
+      },
+      {
+        "type": "action",
+        "description": "Fill a prompt requesting caption ideas into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Send the chat message"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the AI reply to appear"
+      },
+      {
+        "type": "action",
+        "description": "Apply one suggested caption to the composer"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the post composer contains the applied caption"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Inspect task logs and mark task reviewed",
+    "description": "Verifies a user can open a task, view its logs, and mark it as reviewed with the reviewed state reflected in the UI.",
+    "category": "Task Execution & Monitoring",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to tasks"
+      },
+      {
+        "type": "action",
+        "description": "Open a task from the task list to inspect details"
+      },
+      {
+        "type": "action",
+        "description": "Scroll through the task details area to the logs section"
+      },
+      {
+        "type": "action",
+        "description": "Mark the task as reviewed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the task is shown as reviewed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Stop a running task with confirmation",
+    "description": "Verifies a user can stop a running task after confirming, and the task no longer appears as active.",
+    "category": "Task Execution & Monitoring",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to tasks"
+      },
+      {
+        "type": "action",
+        "description": "Select a task that is currently shown as running"
+      },
+      {
+        "type": "action",
+        "description": "Initiate stopping the task"
+      },
+      {
+        "type": "action",
+        "description": "Confirm stopping the task in the in-app confirmation prompt"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the task is no longer listed as active"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Reply to a message thread from notifications",
+    "description": "Verifies a user can open an unread thread, send a reply, and see the reply appear in the thread.",
+    "category": "Notifications & Messaging",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to notifications"
+      },
+      {
+        "type": "action",
+        "description": "Open a message thread from the unread list"
+      },
+      {
+        "type": "action",
+        "description": "Fill a reply message into the reply composer"
+      },
+      {
+        "type": "action",
+        "description": "Send the reply"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sent reply appears in the thread"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Mark a notification thread as read and reduce unread count",
+    "description": "Verifies a user can mark an unread thread as read and the unread count decreases accordingly.",
+    "category": "Notifications & Messaging",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to notifications"
+      },
+      {
+        "type": "action",
+        "description": "Note the current unread count indicator"
+      },
+      {
+        "type": "action",
+        "description": "Mark one unread thread as read"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the unread count indicator decreases"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC008",
+    "title": "Update and save a user preference",
+    "description": "Verifies the user can change a preference on the settings page and successfully save it with a visible confirmation.",
+    "category": "Settings & Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open settings"
+      },
+      {
+        "type": "action",
+        "description": "Change a user preference setting to a different value"
+      },
+      {
+        "type": "action",
+        "description": "Save changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a save confirmation is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated preference value is shown in settings"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC009",
+    "title": "Start an agent from its details view",
+    "description": "Verifies a user can open an agent’s details and start it, resulting in a visible running status.",
+    "category": "Agent Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to agents"
+      },
+      {
+        "type": "action",
+        "description": "Open the details view for an agent from the list"
+      },
+      {
+        "type": "action",
+        "description": "Start the agent"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the agent status is shown as running"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC010",
+    "title": "Change scheduling timezone and see it reflected for scheduled items",
+    "description": "Verifies changing the scheduling timezone updates how scheduled task times are displayed on the tasks page.",
+    "category": "Settings & Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open settings"
+      },
+      {
+        "type": "action",
+        "description": "Select a different scheduling timezone"
+      },
+      {
+        "type": "action",
+        "description": "Save changes"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open the dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Create a new scheduled post with a valid future schedule time"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open tasks"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the newly created scheduled task is listed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the scheduled time is displayed using the selected timezone"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC011",
+    "title": "Stop an agent from its details view",
+    "description": "Verifies a user can stop a running agent from its details view and see the status change to stopped.",
+    "category": "Agent Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to agents"
+      },
+      {
+        "type": "action",
+        "description": "Open the details view for an agent from the list"
+      },
+      {
+        "type": "action",
+        "description": "Start the agent"
+      },
+      {
+        "type": "action",
+        "description": "Stop the agent"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the agent status is shown as stopped"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC012",
+    "title": "Persist saved settings across app refresh",
+    "description": "Verifies that once a setting is saved it remains applied after a page refresh and reopening settings.",
+    "category": "Settings & Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open settings"
+      },
+      {
+        "type": "action",
+        "description": "Change a user preference setting to a different value"
+      },
+      {
+        "type": "action",
+        "description": "Save changes"
+      },
+      {
+        "type": "action",
+        "description": "Press F5 to refresh the page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user remains signed in and stays on a protected page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated preference value is still shown in settings"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC013",
+    "title": "Agent state persists after refresh",
+    "description": "Verifies an agent’s stopped state persists after refreshing the page so users can trust the control state.",
+    "category": "Agent Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to agents"
+      },
+      {
+        "type": "action",
+        "description": "Open the details view for an agent from the list"
+      },
+      {
+        "type": "action",
+        "description": "Stop the agent"
+      },
+      {
+        "type": "action",
+        "description": "Press the browser refresh key"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the agent status is shown as stopped"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC014",
+    "title": "Keep unsaved changes from being silently applied when leaving settings",
+    "description": "Verifies that changing a preference without saving does not persist after navigating away and returning to settings.",
+    "category": "Settings & Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open settings"
+      },
+      {
+        "type": "action",
+        "description": "Change a user preference setting to a different value"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open the dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the preference value is unchanged from the last saved state"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC015",
+    "title": "Prevent scheduling without selecting a platform",
+    "description": "Verifies the composer requires at least one platform selection before a post can be scheduled.",
+    "category": "Dashboard: Compose & Schedule Posts",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email/username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Start a new post composition"
+      },
+      {
+        "type": "action",
+        "description": "Fill a caption into the post composer"
+      },
+      {
+        "type": "action",
+        "description": "Set a valid future schedule time"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to confirm scheduling"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a validation prompt to select at least one platform is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no scheduled post is created"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC016",
+    "title": "Tasks page supports empty state",
+    "description": "Verifies the tasks page shows a clear empty state when there are no tasks.",
+    "category": "Task Execution & Monitoring",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to tasks"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify either a task list is displayed or an empty state message is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC017",
+    "title": "Prevent saving when required timezone selection is cleared",
+    "description": "Verifies the settings page blocks saving and shows validation feedback when the user removes a required timezone selection.",
+    "category": "Settings & Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open settings"
+      },
+      {
+        "type": "action",
+        "description": "Clear the scheduling timezone selection"
+      },
+      {
+        "type": "action",
+        "description": "Save changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a timezone validation error is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the settings are not saved"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC018",
+    "title": "Reject login with incorrect credentials",
+    "description": "Verifies the login form blocks access when incorrect credentials are submitted and shows a validation error.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email/username field with invalid-user@example.com"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with wrong-password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a login validation error is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user remains on the login page"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC019",
+    "title": "Agents page supports empty state",
+    "description": "Verifies the agents page shows a clear empty state when no agents exist.",
+    "category": "Agent Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to agents"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify either an agent list is displayed or an empty state message is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC020",
+    "title": "Show a clear empty state for optional preferences when none are configured",
+    "description": "Verifies the settings page displays an appropriate empty/default state for optional preferences that have not been set yet.",
+    "category": "Settings & Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to open settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify default values or an empty state are shown for optional preferences"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the page provides a clear path to configure preferences"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC021",
+    "title": "Notifications page supports empty state",
+    "description": "Verifies the notifications page shows a clear empty state when there are no notifications or message threads.",
+    "category": "Notifications & Messaging",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation link to notifications"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify either a notifications list is displayed or an empty state message is visible"
+      }
+    ],
+    "priority": "Low"
+  }
+]

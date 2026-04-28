@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "social-multi-poster",
+    "projectPath": "e:\\Antigravity\\social-multi-poster",
+    "testIds": [],
+    "additionalInstruction": "Use Username: Saber120 and Password: Nezuko@120 for all login steps (where LOGIN_USER and LOGIN_PASSWORD are referenced).",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-UwIApkbnGvOtwIu3soGkGSDZFMQ4P8V-dk0KA0Ysq4YElR0eo75yfWoVD4aAG5EMEC1j60VZDB2M4A_JkF-QuNlN6I5jx1vhRq7yYfbtehQpnPjbHCbaHioIr-ipWHnJFdU"
+    }
+  },
+  "serverPort": 65455,
+  "proxy": "http://7e721514-b028-4954-bf10-342b6729a574:fAyEtOxQVG6Zele3Qd8mbJILxdGurEmg@tun.testsprite.com:8080"
+}

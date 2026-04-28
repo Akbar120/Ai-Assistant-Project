@@ -133,7 +133,7 @@ export function useMessagePipeline() {
     spokenIds.current.add(messageId);
 
     // 🔥 PARALLELIZE: Speech vs Persistence
-    const speakPromise = maybeSpeak(content, source, source === 'primary');
+    const speakPromise = metadata?.silent ? Promise.resolve() : maybeSpeak(content, source, source === 'primary');
     const savePromise = appendMessage(message, persist);
 
     await Promise.all([speakPromise, savePromise]);
