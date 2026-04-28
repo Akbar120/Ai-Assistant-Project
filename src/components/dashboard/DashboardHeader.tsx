@@ -124,27 +124,27 @@ export default function DashboardHeader({
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '0 24px',
       borderBottom: '1px solid rgba(255,255,255,0.07)',
-      background: 'rgba(13,14,21,0.9)',
-      backdropFilter: 'blur(10px)',
+      background: 'rgba(7,8,15,0.8)',
+      backdropFilter: 'blur(12px)',
       flexShrink: 0, zIndex: 10,
     }}>
 
       {/* Left — Jenny identity */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
         <div>
-          <h2 style={{ color: 'white', fontSize: 16, fontWeight: 600, letterSpacing: '0.05em', margin: 0 }}>JENNY AI</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-            <span style={{ fontSize: 10, color: '#9ca3af' }}>
-              NEURAL SYNC: <span style={{ color: 'white' }}>99.8%</span>
+          <h2 style={{ color: 'white', fontSize: 16, fontWeight: 800, letterSpacing: '0.08em', margin: 0, textShadow: '0 0 10px rgba(0,242,255,0.2)' }}>JENNY AI</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: '0.04em' }}>
+              NEURAL SYNC: <span style={{ color: '#00f2ff' }}>98.6%</span>
             </span>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e', display: 'inline-block' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', display: 'inline-block' }} />
           </div>
         </div>
 
         <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.08)' }} />
 
         {/* Mode Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: 9999, border: '1px solid rgba(255,255,255,0.05)' }}>
           {MODE_ORDER.map(m => {
             const mc = MODE_CONFIG[m];
             const isActive = m === currentMode;
@@ -153,31 +153,31 @@ export default function DashboardHeader({
                 key={m}
                 onClick={() => handleModeManualSwitch(m)}
                 style={{
-                  padding: '4px 12px',
+                  padding: '6px 16px',
                   borderRadius: 9999,
                   fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.06em',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  border: `1px solid ${isActive ? mc.color : 'rgba(255,255,255,0.08)'}`,
-                  background: isActive ? `rgba(${mc.color === '#00f3ff' ? '0,243,255' : mc.color === '#6366f1' ? '99,102,241' : mc.color === '#f59e0b' ? '245,158,11' : mc.color === '#10b981' ? '16,185,129' : '148,163,184'},0.12)` : 'transparent',
-                  color: isActive ? mc.color : 'rgba(255,255,255,0.22)',
-                  boxShadow: isActive ? `0 0 12px ${mc.glow}` : 'none',
-                  transition: 'all 0.2s ease',
+                  border: `1px solid ${isActive ? 'rgba(0,242,255,0.4)' : 'transparent'}`,
+                  background: isActive ? 'rgba(0,242,255,0.12)' : 'transparent',
+                  color: isActive ? '#00f2ff' : '#64748b',
+                  boxShadow: isActive ? '0 0 15px rgba(0,242,255,0.25)' : 'none',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   cursor: 'pointer',
                   userSelect: 'none',
-                  opacity: isActive ? 1 : 0.6,
+                  opacity: isActive ? 1 : 0.7,
                 }}
                 onMouseEnter={e => {
                   if (!isActive) {
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                    e.currentTarget.style.color = 'white';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
                   }
                 }}
                 onMouseLeave={e => {
                   if (!isActive) {
-                    e.currentTarget.style.opacity = '0.6';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.color = '#64748b';
+                    e.currentTarget.style.background = 'transparent';
                   }
                 }}
               >
@@ -189,44 +189,53 @@ export default function DashboardHeader({
       </div>
 
       {/* Right — Search + controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
         {/* Search */}
         <div style={{ position: 'relative' }}>
-          <i className="fa-solid fa-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#6b7280', fontSize: 12 }} />
+          <i className="fa-solid fa-search" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 13 }} />
           <input
             type="text"
             placeholder="Search or ask Jenny anything..."
             style={{
-              background: '#13151f', border: '1px solid #374151', borderRadius: 9999,
-              paddingLeft: 36, paddingRight: 48, paddingTop: 8, paddingBottom: 8,
-              width: 280, color: 'white', fontSize: 13, outline: 'none',
+              background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 9999,
+              paddingLeft: 40, paddingRight: 52, paddingTop: 10, paddingBottom: 10,
+              width: 320, color: 'white', fontSize: 13, outline: 'none',
+              transition: 'all 0.3s',
+              fontWeight: 500,
+            }}
+            onFocus={e => {
+              e.currentTarget.style.borderColor = 'rgba(0,242,255,0.5)';
+              e.currentTarget.style.boxShadow = '0 0 15px rgba(0,242,255,0.1)';
+            }}
+            onBlur={e => {
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           />
           <div style={{
-            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-            background: '#1f2937', borderRadius: 4, padding: '2px 6px',
-            fontSize: 10, color: '#9ca3af', border: '1px solid #374151',
+            position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+            background: 'rgba(255,255,255,0.05)', borderRadius: 6, padding: '3px 8px',
+            fontSize: 10, color: '#64748b', border: '1px solid rgba(255,255,255,0.1)',
+            fontWeight: 700,
           }}>⌘K</div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Mic Toggle */}
           <button
             onClick={handleMicToggle}
             title={micEnabled ? 'Mute wake-word' : 'Enable wake-word'}
             style={{
-              width: 36, height: 36, borderRadius: '50%',
-              border: `1px solid ${micEnabled ? '#00f3ff' : '#6b7280'}`,
-              background: micEnabled ? 'rgba(0,243,255,0.1)' : 'transparent',
-              color: micEnabled ? '#00f3ff' : '#6b7280',
+              width: 40, height: 40, borderRadius: '50%',
+              border: `1px solid ${micEnabled ? 'rgba(0,242,255,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              background: micEnabled ? 'rgba(0,242,255,0.08)' : 'rgba(0,0,0,0.2)',
+              color: micEnabled ? '#00f2ff' : '#64748b',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, position: 'relative',
+              cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0,
+              boxShadow: micEnabled ? '0 0 15px rgba(0,242,255,0.2)' : 'none',
             }}
           >
-            <i className={`fa-solid ${micEnabled ? 'fa-microphone' : 'fa-microphone-slash'}`} style={{ fontSize: 13 }} />
-            {!micEnabled && (
-              <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid #ef4444', opacity: 0.6 }} />
-            )}
+            <i className={`fa-solid ${micEnabled ? 'fa-microphone' : 'fa-microphone-slash'}`} style={{ fontSize: 14 }} />
           </button>
 
           {/* TTS Toggle */}
@@ -234,68 +243,56 @@ export default function DashboardHeader({
             onClick={handleTtsToggle}
             title={ttsEnabled ? 'Mute TTS' : 'Unmute TTS'}
             style={{
-              width: 36, height: 36, borderRadius: '50%',
-              border: `1px solid ${ttsEnabled ? '#374151' : '#ef4444'}`,
-              background: ttsEnabled ? 'transparent' : 'rgba(239,68,68,0.1)',
-              color: ttsEnabled ? '#9ca3af' : '#ef4444',
+              width: 40, height: 40, borderRadius: '50%',
+              border: `1px solid ${ttsEnabled ? 'rgba(255,255,255,0.1)' : 'rgba(239,68,68,0.4)'}`,
+              background: ttsEnabled ? 'rgba(0,0,0,0.2)' : 'rgba(239,68,68,0.08)',
+              color: ttsEnabled ? '#64748b' : '#ef4444',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0,
+              cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0,
+              boxShadow: !ttsEnabled ? '0 0 15px rgba(239,68,68,0.2)' : 'none',
             }}
           >
-            <i className={`fa-solid ${ttsEnabled ? 'fa-wave-square' : 'fa-volume-xmark'}`} style={{ fontSize: 13 }} />
+            <i className={`fa-solid ${ttsEnabled ? 'fa-wave-square' : 'fa-volume-xmark'}`} style={{ fontSize: 14 }} />
           </button>
+
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
 
           {/* Refresh Server */}
           <button
             onClick={() => window.location.reload()}
             title="Refresh Server"
             style={{
-              width: 36, height: 36, borderRadius: '50%',
-              border: '1px solid #374151', color: '#9ca3af', background: 'transparent',
+              width: 40, height: 40, borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', background: 'rgba(0,0,0,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, position: 'relative',
+              cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0,
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#00f3ff'; e.currentTarget.style.borderColor = 'rgba(0,243,255,0.4)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#374151'; }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
           >
-          <i className="fa-solid fa-rotate-right" style={{ fontSize: 13 }} />
-          </button>
-
-          {/* Clear Chat */}
-          <button
-            onClick={handleClearChat}
-            title="Clear Chat History"
-            style={{
-              width: 36, height: 36, borderRadius: '50%',
-              border: '1px solid #374151', color: '#9ca3af', background: 'transparent',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, position: 'relative',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#374151'; }}
-          >
-            <i className="fa-solid fa-trash-can" style={{ fontSize: 13 }} />
+            <i className="fa-solid fa-rotate-right" style={{ fontSize: 14 }} />
           </button>
 
           {/* Notifications */}
           <button title="Notifications" style={{
-            width: 36, height: 36, borderRadius: '50%',
-            border: '1px solid #374151', color: '#9ca3af', background: 'transparent',
+            width: 40, height: 40, borderRadius: '50%',
+            border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', background: 'rgba(0,0,0,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, position: 'relative',
+            cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0, position: 'relative',
           }}>
-            <i className="fa-regular fa-bell" style={{ fontSize: 13 }} />
-            <span style={{ position: 'absolute', top: 1, right: 1, width: 8, height: 8, background: '#ef4444', borderRadius: '50%', border: '1.5px solid #0d0e15' }} />
+            <i className="fa-regular fa-bell" style={{ fontSize: 14 }} />
+            <span style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, background: '#ef4444', borderRadius: '50%', border: '2px solid #07080f', boxShadow: '0 0 8px rgba(239,68,68,0.5)' }} />
           </button>
 
           {/* Profile */}
           <button title="Profile" style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1e3a8a, #5b21b6)',
-            border: '1px solid #3b82f6',
-            color: '#93c5fd', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', fontWeight: 700, fontSize: 14, flexShrink: 0,
-          }}>J</button>
+            width: 40, height: 40, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #00f2ff, #6c63ff)',
+            border: '2px solid rgba(255,255,255,0.1)',
+            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', fontWeight: 800, fontSize: 14, flexShrink: 0,
+            boxShadow: '0 0 15px rgba(0,242,255,0.3)',
+          }}>A</button>
         </div>
       </div>
     </header>

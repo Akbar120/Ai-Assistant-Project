@@ -139,101 +139,82 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
       width: 300, minWidth: 300, height: '100%',
       display: 'flex', flexDirection: 'column',
       borderLeft: '1px solid rgba(255,255,255,0.07)',
-      background: '#0a0b10', flexShrink: 0, zIndex: 10,
+      background: '#07080f', flexShrink: 0, zIndex: 10,
     }}>
 
       {/* Header */}
       <div style={{
-        padding: '0 20px', height: 60, minHeight: 60,
+        padding: '0 20px', height: 64, minHeight: 64,
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, position: 'relative',
+        background: 'rgba(255,255,255,0.02)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
-            <h3 style={{ color: 'white', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', margin: 0 }}>
+            <h3 style={{ color: 'white', fontSize: 11, fontWeight: 800, letterSpacing: '0.15em', margin: 0 }}>
               EXECUTION FLOW
             </h3>
-            <i className={`fa-solid fa-chevron-${dropdownOpen ? 'up' : 'down'}`} style={{ fontSize: 9, color: '#6b7280' }} />
+            <i className={`fa-solid fa-chevron-${dropdownOpen ? 'up' : 'down'}`} style={{ fontSize: 10, color: '#64748b' }} />
           </div>
 
           {/* Mode badge */}
           <span style={{
             display: 'flex', alignItems: 'center', gap: 5,
-            fontSize: 9, fontWeight: 600,
-            color: isExecutionMode ? CYAN : '#6b7280',
-            border: `1px solid ${isExecutionMode ? 'rgba(0,243,255,0.3)' : '#374151'}`,
-            background: isExecutionMode ? 'rgba(0,243,255,0.08)' : 'transparent',
-            padding: '3px 8px', borderRadius: 9999,
+            fontSize: 10, fontWeight: 700,
+            color: isExecutionMode ? CYAN : '#64748b',
+            border: `1px solid ${isExecutionMode ? 'rgba(0,242,255,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            background: isExecutionMode ? 'rgba(0,242,255,0.1)' : 'transparent',
+            padding: '4px 10px', borderRadius: 9999,
             transition: 'all 0.3s',
+            letterSpacing: '0.04em',
           }}>
-            {isLive && <span style={{ width: 5, height: 5, borderRadius: '50%', background: CYAN, animation: 'pulse 1.5s infinite' }} />}
-            {isExecutionMode ? (isLive ? 'LIVE' : 'READY') : 'INACTIVE'}
+            {isLive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: CYAN, animation: 'pulse 1.5s infinite', boxShadow: `0 0 8px ${CYAN}` }} />}
+            {isExecutionMode ? (isLive ? 'LIVE' : 'READY') : 'IDLE'}
           </span>
         </div>
-
-        {/* History dropdown */}
-        {dropdownOpen && (
-          <div style={{
-            position: 'absolute', top: 55, left: 10, right: 10,
-            background: '#1a1b26', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 8, padding: 8, zIndex: 50,
-            maxHeight: 200, overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-          }}>
-            {history.length === 0 ? (
-              <div style={{ fontSize: 11, color: '#6b7280', padding: 8, textAlign: 'center' }}>No executions yet</div>
-            ) : history.map(ex => (
-              <div
-                key={ex.id}
-                onClick={() => { setSelectedId(ex.id); setDropdownOpen(false); }}
-                style={{
-                  padding: '8px 12px', fontSize: 11,
-                  color: ex.id === selectedId ? CYAN : 'white',
-                  background: ex.id === selectedId ? 'rgba(0,243,255,0.1)' : 'transparent',
-                  borderRadius: 6, cursor: 'pointer', marginBottom: 2,
-                  display: 'flex', justifyContent: 'space-between',
-                }}
-              >
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{ex.label}</span>
-                <span style={{ color: ex.status === 'live' ? CYAN : '#6b7280', fontSize: 9 }}>{ex.status}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Mode gate — show message when not in execution */}
       {!isExecutionMode ? (
         <div style={{
           flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24,
+          alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32,
         }}>
-          <div style={{ fontSize: 28, opacity: 0.2 }}>⚡</div>
-          <div style={{ fontSize: 11, color: '#6b7280', textAlign: 'center', lineHeight: 1.6 }}>
-            Execution flow activates<br />only in <span style={{ color: CYAN }}>Execution mode</span>
+          <div style={{
+            width: 60, height: 60, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.02)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid rgba(255,255,255,0.05)',
+          }}>
+            <i className="fa-solid fa-bolt-lightning" style={{ fontSize: 24, color: '#1e293b' }} />
+          </div>
+          <div style={{ fontSize: 12, color: '#64748b', textAlign: 'center', lineHeight: 1.6, fontWeight: 500 }}>
+            Execution tracking activates<br />during <span style={{ color: CYAN }}>Action Phase</span>
           </div>
           <div style={{
-            fontSize: 10, color: '#374151',
-            border: '1px solid #1f2937', borderRadius: 6,
-            padding: '4px 10px',
-            textTransform: 'uppercase', letterSpacing: '0.08em',
+            fontSize: 10, color: '#475569',
+            border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
+            padding: '5px 12px',
+            textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700,
+            background: 'rgba(0,0,0,0.2)',
           }}>
-            Current: {currentMode}
+            Status: {currentMode}
           </div>
         </div>
       ) : (
         <>
           {/* Step Timeline */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px 12px', minHeight: 0 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px', minHeight: 0 }}>
             {!activeRecord ? (
-              <div style={{ color: '#6b7280', fontSize: 11, textAlign: 'center', marginTop: 40 }}>
-                Waiting for execution…
+              <div style={{ color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 40, fontWeight: 500 }}>
+                Awaiting sequence…
               </div>
             ) : (
-              <div style={{ position: 'relative', paddingLeft: 8 }}>
-                <div style={{ position: 'absolute', left: 23, top: 32, bottom: 10, width: 1, background: 'rgba(255,255,255,0.07)' }} />
+              <div style={{ position: 'relative', paddingLeft: 4 }}>
+                <div style={{ position: 'absolute', left: 19, top: 32, bottom: 10, width: 2, background: 'rgba(255,255,255,0.05)' }} />
 
                 {STEPS.map(step => {
                   const active   = activeStep === step.id;
@@ -242,36 +223,32 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
 
                   return (
                     <div key={step.id} style={{
-                      display: 'flex', gap: 12, marginBottom: 20,
-                      opacity: inactive ? 0.28 : 1, transition: 'opacity 0.3s',
+                      display: 'flex', gap: 16, marginBottom: 24,
+                      opacity: inactive ? 0.35 : 1, transition: 'all 0.4s ease',
+                      transform: active ? 'translateX(4px)' : 'none',
                     }}>
                       <div style={{
-                        width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                        width: 32, height: 32, borderRadius: 10, flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: `1px solid ${active ? CYAN : complete ? 'rgba(0,243,255,0.4)' : '#374151'}`,
-                        background: active ? 'rgba(0,243,255,0.10)' : '#0d0e15',
-                        color: active || complete ? CYAN : '#6b7280',
-                        boxShadow: active ? `0 0 12px rgba(0,243,255,0.4)` : 'none',
+                        border: `1px solid ${active ? CYAN : complete ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        background: active ? 'rgba(0,242,255,0.12)' : complete ? 'rgba(34,197,94,0.05)' : '#0d0e15',
+                        color: active ? CYAN : complete ? '#22c55e' : '#64748b',
+                        boxShadow: active ? `0 0 15px rgba(0,242,255,0.3)` : 'none',
                         fontSize: 12, zIndex: 1, position: 'relative', transition: 'all 0.3s',
                       }}>
                         {complete
-                          ? <i className="fa-solid fa-check" style={{ fontSize: 10, color: '#22c55e' }} />
-                          : <i className={step.icon} style={{ fontSize: 11 }} />
+                          ? <i className="fa-solid fa-check" style={{ fontSize: 11, fontWeight: 900 }} />
+                          : <i className={step.icon} style={{ fontSize: 12 }} />
                         }
                       </div>
 
                       <div style={{ flex: 1, paddingTop: 4 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <h4 style={{ color: active || complete ? 'white' : '#9ca3af', fontSize: 13, fontWeight: 500, margin: 0 }}>
+                          <h4 style={{ color: active ? 'white' : complete ? '#94a3b8' : '#64748b', fontSize: 13, fontWeight: 700, margin: 0, letterSpacing: '0.01em' }}>
                             {step.label}
                           </h4>
-                          {active && (
-                            <span style={{ fontSize: 9, color: CYAN, display: 'flex', alignItems: 'center', gap: 3 }}>
-                              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: 9 }} /> Active
-                            </span>
-                          )}
                         </div>
-                        <p style={{ fontSize: 10, color: '#6b7280', margin: '3px 0 0' }}>
+                        <p style={{ fontSize: 11, color: active ? '#94a3b8' : '#475569', margin: '4px 0 0', fontWeight: 500, lineHeight: 1.4 }}>
                           {active && processingTaskLabel ? processingTaskLabel : step.sub}
                         </p>
                       </div>
@@ -285,16 +262,16 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
           {/* Execution Logs */}
           {activeRecord && (
             <div style={{
-              height: 150, borderTop: '1px solid rgba(255,255,255,0.07)',
-              background: '#050505', display: 'flex', flexDirection: 'column',
+              height: 180, borderTop: '1px solid rgba(255,255,255,0.07)',
+              background: '#050508', display: 'flex', flexDirection: 'column',
             }}>
-              <div style={{ fontSize: 9, color: '#6b7280', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontWeight: 600, letterSpacing: 1 }}>
-                EXECUTION LOGS
+              <div style={{ fontSize: 10, color: '#64748b', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontWeight: 800, letterSpacing: '0.1em' }}>
+                LIVE SEQUENCE LOGS
               </div>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {activeRecord.logs.map((log, i) => (
-                  <div key={i} style={{ fontSize: 10, color: '#9ca3af', fontFamily: 'monospace', lineHeight: 1.4 }}>
-                    <span style={{ color: '#4ade80' }}>&gt;</span> {log}
+                  <div key={i} style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', lineHeight: 1.5 }}>
+                    <span style={{ color: CYAN, opacity: 0.7 }}>❯</span> {log}
                   </div>
                 ))}
               </div>
@@ -302,6 +279,78 @@ export default function ExecutionFlow({ activeMode }: { activeMode?: JennyMode }
           )}
         </>
       )}
+
+      {/* Current Tools Panel */}
+      <div style={{
+        padding: '20px',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        background: 'rgba(255,255,255,0.01)',
+      }}>
+        <div style={{ fontSize: 10, color: '#64748b', fontWeight: 800, letterSpacing: '0.1em', marginBottom: 16, textTransform: 'uppercase' }}>
+          Current Tools {(currentMode === 'planning' || currentMode === 'execution') ? '(Active)' : ''}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[
+            { name: 'agent_manager', status: 'Executed', color: '#22c55e' },
+            { name: 'file_inspector', status: 'Running', color: CYAN }
+          ].map(tool => (
+            <div key={tool.name} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 12px', background: 'rgba(0,0,0,0.3)',
+              borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)',
+              transition: 'all 0.2s',
+            }}>
+              <span style={{ fontSize: 12, color: '#f8fafc', fontWeight: 600 }}>{tool.name}</span>
+              <span style={{ fontSize: 10, color: tool.color, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: tool.color, boxShadow: `0 0 6px ${tool.color}` }} />
+                {tool.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Skills Active Panel */}
+      <div style={{
+        padding: '20px',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        background: 'rgba(0,0,0,0.2)',
+        flexShrink: 0,
+      }}>
+        <div style={{ fontSize: 10, color: '#64748b', fontWeight: 800, letterSpacing: '0.1em', marginBottom: 16, textTransform: 'uppercase' }}>
+          Skills Active (9)
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          {[
+            { icon: 'fa-brands fa-instagram', color: '#E1306C', name: 'Instagram' },
+            { icon: 'fa-brands fa-twitter', color: '#ffffff', name: 'Twitter' },
+            { icon: 'fa-brands fa-discord', color: '#5865F2', name: 'Discord' },
+            { icon: 'fa-solid fa-brain', color: CYAN, name: 'AI Core' },
+            { icon: 'fa-solid fa-code', color: '#b026ff', name: 'Code' },
+          ].map(skill => (
+            <div key={skill.name} style={{
+              width: 38, height: 38, borderRadius: 10,
+              background: `${skill.color}15`,
+              border: `1px solid ${skill.color}30`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 10px ${skill.color}15`,
+              transition: 'all 0.3s ease',
+              cursor: 'help',
+            }} title={skill.name}>
+              <i className={skill.icon} style={{ fontSize: 16, color: skill.color, filter: `drop-shadow(0 0 5px ${skill.color}50)` }} />
+            </div>
+          ))}
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, color: '#64748b', fontWeight: 700,
+          }}>
+            +4
+          </div>
+        </div>
+      </div>
     </aside>
   );
 }

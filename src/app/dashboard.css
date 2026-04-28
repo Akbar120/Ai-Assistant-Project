@@ -179,3 +179,27 @@
     animation: rainbow-glow 3s linear infinite;
     border-width: 2px !important;
 }
+
+/* Floating particles animation for mode banner */
+@keyframes float-particle {
+    0%, 100% { transform: translateY(0); opacity: 0.6; }
+    50% { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes mode-glow-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(0,243,255,0.3), 0 0 16px rgba(0,243,255,0.15); }
+    50% { box-shadow: 0 0 12px rgba(0,243,255,0.5), 0 0 24px rgba(0,243,255,0.25); }
+}
+
+.mode-banner-active {
+    animation: mode-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes input-glow {
+    0%, 100% { border-color: rgba(0,243,255,0.3); box-shadow: 0 0 8px rgba(0,243,255,0.1); }
+    50% { border-color: rgba(0,243,255,0.6); box-shadow: 0 0 16px rgba(0,243,255,0.25); }
+}
+
+.input-glow:focus {
+    animation: input-glow 1.5s ease-in-out infinite;
+}

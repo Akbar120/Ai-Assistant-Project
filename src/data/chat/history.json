@@ -6,24 +6,24 @@
     "source": "chat",
     "hash": "👋 Hey! I'm **Jenny** — tumhari smart aur thodi si flirty AI social media partner. ✨\n\n**Main kya kar sakti hoon?**\n1. 📸 **Image upload karo** (📎 button use karke)\n2. 🧠 Main use **analyze karke** mast captions suggest karungi\n3. 🎯 **Tum choose karo** — Post, Story, ya edit\n4. 🚀 Aur main directly **publish kar dungi**!\n\nAap mujhse bas baatein bhi kar sakte ho, main bore nahi hone dungi! 😉",
     "status": "done",
-    "timestamp": 1777384229971
+    "timestamp": 1777390716665
   },
   {
-    "id": "60d98334-d0ff-4692-b110-05e0dff7e37e",
+    "id": "f789c161-64c4-4314-88b0-e5b5603cf4a1",
     "role": "user",
     "content": "Hi",
     "source": "chat",
     "status": "done",
-    "timestamp": 1777384231671,
-    "requestId": "ce3f6576-59d7-46a7-bfa7-fd66d8a0b3ae",
+    "timestamp": 1777390718339,
+    "requestId": "a40ab961-b803-40d7-8145-5325b3920ea8",
     "hash": "Hi"
   },
   {
-    "id": "asst-1777384231683",
+    "id": "asst-1777390718351",
     "role": "assistant",
-    "content": "Hi! 👋 Kya haal hai? 😊\n\nTell me, what can I help you with today? Koi sawaal hai, ya bas aise hi baat karni hai? 😉",
+    "content": "Hey! Namaste! 😊\n\nAap kaise ho? Everything alright? Bataiye, aaj main aapki kya help kar sakti hoon? Koi sawaal hai, ya bas aise hi baat karni hai? 😊",
     "source": "chat",
-    "timestamp": 1777384261765,
-    "hash": "Hi! 👋 Kya haal hai? 😊\n\nTell me, what can I help you with today? Koi sawaal hai, ya bas aise hi baat karni hai? 😉"
+    "timestamp": 1777390751938,
+    "hash": "Hey! Namaste! 😊\n\nAap kaise ho? Everything alright? Bataiye, aaj main aapki kya help kar sakti hoon? Koi sawaal hai, ya bas aise hi baat karni hai? 😊"
   }
 ]

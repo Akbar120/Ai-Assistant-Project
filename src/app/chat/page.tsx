@@ -65,6 +65,73 @@ function renderContent(content: string) {
   
   // 🔥 RESTORE: Thought Process Accordion
   processed = processed.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (_, thoughts) => {
+'use client';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { toast } from '@/components/ToastProvider';
+import { useChatStore } from '@/components/chat/ChatProvider';
+import { useMessagePipeline } from '@/hooks/useMessagePipeline';
+import { useVoiceEngine } from '@/hooks/useVoiceEngine';
+import type { ChatMessage } from '@/lib/chat-types';
+import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import ExecutionFlow from '@/components/dashboard/ExecutionFlow';
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type JennyMode = 'conversation' | 'planning' | 'analyze' | 'confirmation' | 'execution';
+
+type AgentStage = 'idle' | 'analyzing' | 'awaiting_platform' | 'posting' | 'done';
+
+type Message = ChatMessage;
+
+interface AIAction {
+  action: string;
+  caption?: string;
+  caption_short?: string;
+  caption_viral?: string;
+  analysis?: string;
+  hashtags?: string[];
+  platforms?: string[];
+  schedule?: string | null;
+  username?: string;
+  question?: string;
+  mood?: string;
+}
+
+interface DMContact {
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  lastMessage?: string;
+  isGroup?: boolean;
+}
+
+type DmMode = 'idle' | 'fetching' | 'picking' | 'sending' | 'sent';
+
+interface MentionState {
+  visible: boolean;
+  query: string;
+  startIndex: number;
+  selectedIndex: number;
+  filtered: Array<{ id: string; name: string; type: 'app' | 'user' | 'discord-guild' | 'discord-channel'; icon?: string; avatar?: string }>;
+  appContext?: string;
+  loadingContacts?: boolean;
+}
+
+// ─── Platform Config ──────────────────────────────────────────────────────────
+
+const PLATFORMS = [
+  { id: 'instagram', label: 'Instagram', icon: '📸', color: '#E1306C', gradient: 'linear-gradient(135deg,#f09433,#dc2743,#bc1888)' },
+  { id: 'twitter', label: 'X (Twitter)', icon: '𝕏', color: '#fff', gradient: 'linear-gradient(135deg,#1a1a2e,#333)' },
+  { id: 'discord', label: 'Discord', icon: '💬', color: '#5865F2', gradient: 'linear-gradient(135deg,#4752c4,#7289da)' },
+];
+
+// ─── Helper: render markdown-like content ─────────────────────────────────────
+
+function renderContent(content: string) {
+  let processed = content;
+  
+  // 🔥 RESTORE: Thought Process Accordion
+  processed = processed.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (_, thoughts) => {
     return `
       <div class="thought-container" style="margin: 16px 0; opacity: 1;">
         <details class="thought-details" style="background: linear-gradient(135deg, rgba(0,243,255,0.05) 0%, rgba(139,132,255,0.05) 100%); border: 1px solid rgba(0,243,255,0.2); border-radius: 16px; overflow: hidden; transition: all 0.3s ease;">
@@ -84,8 +151,8 @@ function renderContent(content: string) {
   return processed
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code style="background:rgba(108,99,255,0.15);padding:2px 6px;border-radius:4px;font-size:13px;color:#8b84ff">$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#8b84ff;text-decoration:underline">$1</a>')
+    .replace(/`(.*?)`/g, '<code style="background:rgba(0,242,255,0.1);padding:2px 6px;border-radius:4px;font-size:13px;color:#00f2ff;border:1px solid rgba(0,242,255,0.2)">$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#00f2ff;text-decoration:underline">$1</a>')
     .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g, '<br/>');
 }
@@ -558,7 +625,7 @@ export default function ChatPage() {
               id: g.id, name: g.name, type: 'discord-guild', avatar: g.icon
             })),
             selectedIndex: 0,
-          }));
+          })),
           return;
         }
         throw new Error('Failed to fetch Discord servers');
@@ -838,367 +905,6 @@ export default function ChatPage() {
                 }
               }
             } else if (data.type === 'mode') {
-              // Early mode transition for instant UI sync
-              if (data.mode) setActiveMode(data.mode);
-            } else if (data.type === 'full') {
-              // Finalize with full action state
-              if (data.mode) setActiveMode(data.mode);
-
-              // Use fullReply (has complete text with think tags for dropdown)
-              handleAssistantResponse(data.reply || '', 'primary', internalId, { 
-                id: assistantMessageId, 
-                content: fullReply, // ← Now includes think tags for dropdown
-                isPosting: data.action === 'post',
-                postResult: data.action === 'post' ? data.result : undefined,
-                silent: true
-              }, false);
-            } else if (data.type === 'error') {
-              throw new Error(data.message || 'Server error in stream');
-            }
-          } catch (e) {
-            console.warn('[SSE] Parse error on buffered line:', e, line);
-          }
-        }
-      }
-
-      // Sync back to Voice Widget
-      if (source === 'voice' && typeof window !== 'undefined' && (window as any).require) {
-         (window as any).require('electron').ipcRenderer.send('chat-to-voice', { status: 'PASSIVE', aiText: fullReply });
-      }
-
-    } catch (err: any) {
-      console.error('[ChatPage] Error in pipeline:', err);
-      handleAssistantResponse(`❌ Something went wrong: ${err?.message || 'Please try again.'}`, 'chat', internalId);
-      if (source === 'voice' && typeof window !== 'undefined' && (window as any).require) {
-        (window as any).require('electron').ipcRenderer.send('chat-to-voice', { status: 'PASSIVE', aiText: '' });
-      }
-    } finally {
-      if (currentRequestRef.current === requestId) {
-        setLoading(false);
-        setProcessingTaskLabel(null);
-      }
-      pendingRequests.current.delete(internalId);
-      setStreamingThought('');
-    }
-  };
-  // 🔑 Key: Keep the ref in sync so the IPC voice handler always uses the latest function
-  processInputRef.current = processInput;
-
-  const sendMessage = async (text?: string) => {
-    processInput(text, 'chat');
-  };
-
-  const applyMention = (item: { name: string; type: 'app' | 'user' | 'discord-guild' | 'discord-channel'; id?: string }) => {
-    if (item.type === 'app') {
-      fetchDmContactsSilent(item.name);
-      return; 
-    }
-    if (item.type === 'discord-guild' && item.id) {
-      fetchDiscordChannelsSilent(item.id);
-      return;
-    }
-
-    const before = input.slice(0, mention.startIndex);
-    const after = input.slice(textareaRef.current?.selectionStart || 0);
-    const appName = mention.appContext ? mention.appContext.charAt(0).toUpperCase() + mention.appContext.slice(1) : 'Instagram';
-    
-    const explicitIntentString = item.type === 'discord-channel'
-      ? `Post in #${item.name} (-${item.id}) on Discord: `
-      : `DM @${item.name} on ${appName}: `;
-    
-    const newValue = `${before}${explicitIntentString}${after}`;
-    setInput(newValue);
-    setMention(prev => ({ ...prev, visible: false, appContext: undefined }));
-    
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        const newPos = before.length + explicitIntentString.length;
-        textareaRef.current.setSelectionRange(newPos, newPos);
-      }
-    }, 10);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (mention.visible && (mention.filtered.length > 0 || mention.loadingContacts)) {
-      if (mention.loadingContacts) {
-        if (e.key === 'Escape') setMention(prev => ({ ...prev, visible: false, loadingContacts: false }));
-        return; // Disable other keys while loading
-      }
-      
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setMention(prev => ({ ...prev, selectedIndex: (prev.selectedIndex + 1) % prev.filtered.length }));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setMention(prev => ({ ...prev, selectedIndex: (prev.selectedIndex - 1 + prev.filtered.length) % prev.filtered.length }));
-        return;
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        applyMention(mention.filtered[mention.selectedIndex] as any);
-        return;
-      }
-      if (e.key === 'Escape') {
-        setMention(prev => ({ ...prev, visible: false, appContext: undefined }));
-        return;
-      }
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  };
-
-  const QUICK_PROMPTS = uploadedFile
-    ? ['Analyze and generate captions', 'Post to Instagram feed', 'Add to story']
-    : ['Post this image to Instagram', 'Suggest hashtags for tech', 'Write a viral tweet'];
-
-  return (
-    <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', background: '#0a0b10', color: '#d1d5db', fontSize: 14 }}>
-      <DashboardSidebar />
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', minWidth: 0 }}>
-        <DashboardHeader activeMode={activeMode} />
-        
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-          {/* BEGIN: Chat Area */}
-          <section style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, minHeight: 0 }}>
-            
-            {/* Chat Messages — scrollable, messages pushed to bottom */}
-            <div
-              ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto custom-scrollbar"
-              style={{ padding: '24px 24px 8px 24px', minHeight: 0 }}
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-                // Re-enable auto-scroll when user manually scrolls within 60px of bottom
-                autoScrollRef.current = distFromBottom < 60;
-              }}
-            >
-              {/* Spacer pushes messages to bottom when few messages */}
-              <div className="flex flex-col justify-end min-h-full gap-6">
-              {(() => {
-                // Compute the last AI message id for speaking highlight
-                const lastAiId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
-                return messages.map((msg) => {
-                  const isSpeakingThis = isSpeaking && msg.id === lastAiId && msg.role === 'assistant';
-                  return (
-                <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'gap-3'} chat-message-enter`}>
-                  
-                  {msg.role === 'assistant' && (
-                    <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', overflow: 'hidden', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 15%' }} src="/jenny-image/avatar.jpg" />
-                    </div>
-                  )}
-
-                  <div
-                    className={`${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}
-                    style={{
-                      padding: '12px 16px',
-                      maxWidth: msg.role === 'user' ? 480 : 640,
-                      ...(isSpeakingThis ? {
-                        border: '1px solid rgba(0,243,255,0.6)',
-                        boxShadow: '0 0 22px rgba(0,243,255,0.25), inset 0 0 10px rgba(0,243,255,0.05)',
-                        transition: 'all 0.4s ease',
-                      } : {}),
-                    }}
-                  >
-                    
-                    {msg.file && (
-                      <div style={{ marginBottom: 8 }}>
-                        {msg.file.type.startsWith('image/') && msg.file.url ? (
-                          <img
-                            src={msg.file.url}
-                            alt={msg.file.name}
-                            style={{ maxWidth: 200, maxHeight: 200, borderRadius: 12, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
-                          />
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', width: 'fit-content', fontSize: 13 }}>
-                            📎 {msg.file.name}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {msg.content && !msg.content.startsWith('{"action"') && (
-                      <div
-                        style={{ color: '#d1d5db', lineHeight: 1.6 }}
-                        dangerouslySetInnerHTML={{ __html: renderContent(msg.content) }}
-                      />
-                    )}
-                    
-                    {/* Action Buttons inside messages */}
-                    {msg.role === 'assistant' && msg.content.includes('⚠️ **Confirm DM**') && (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: 'white', border: '1px solid rgba(0,243,255,0.3)' }} onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>📤 Send DM</button>
-                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Cancel</button>
-                      </div>
-                    )}
-                    {msg.role === 'assistant' && msg.content.includes('⚠️ I need an AI Agent') && (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: 'white', border: '1px solid rgba(0,243,255,0.3)' }} onClick={() => sendMessage('Yes')} disabled={loading || isPosting}>✅ Approve</button>
-                        <button className="action-btn" style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 12, color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }} onClick={() => sendMessage('No')} disabled={loading || isPosting}>❌ Reject</button>
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 10, color: '#6b7280', marginTop: 8, justifyContent: 'flex-end', gap: 4 }}>
-                      <span suppressHydrationWarning>{formatTime(msg.timestamp)}</span>
-                      {msg.role === 'user' && <i className="fa-solid fa-check-double" style={{ color: '#3b82f6' }}></i>}
-                    </div>
-                  </div>
-                </div>
-                  );
-                });
-              })()}
-
-
-              {/* Loading indicator */}
-              {showThinking && (
-                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', overflow: 'hidden', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 15%' }} src="/jenny-image/avatar.jpg" />
-                  </div>
-                  <div className="chat-bubble-processing" style={{ padding: '12px 16px', maxWidth: 640 }}>
-                     {streamingThought ? (
-                       <div style={{ color: '#9ca3af', fontSize: 12, fontStyle: 'italic', lineHeight: 1.5, maxHeight: 200, overflowY: 'auto' }}>
-                         {streamingThought}
-                         <span style={{ animation: 'blink 1s infinite', color: '#00f3ff', marginLeft: 4 }}>|</span>
-                       </div>
-                     ) : (
-                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                         <span style={{ color: '#d1d5db', fontSize: 14 }}>{processingTaskLabel || 'Jenny is thinking...'}</span>
-                         <div style={{ display: 'flex', gap: 4 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite' }}></div>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.2s' }}></div>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00f3ff', animation: 'bounce 1s infinite 0.4s' }}></div>
-                         </div>
-                       </div>
-                     )}
-                  </div>
-                </div>
-              )}
-
-              {/* Posting Status Card */}
-              {(isPosting || postResults) && (
-                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, fontSize: 20 }}>🌸</div>
-                  <div className="chat-bubble-ai" style={{ padding: '12px 16px', maxWidth: 580, borderLeft: '2px solid #b026ff' }}>
-                     <PostingCard results={postResults || undefined} isPosting={isPosting} />
-                  </div>
-                </div>
-              )}
-
-              {/* DM Contact Picker */}
-              {dmMode === 'picking' && dmContacts.length > 0 && (
-                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🌸</div>
-                  <div className="chat-bubble-ai" style={{ padding: '12px 16px', maxWidth: 580, borderLeft: '2px solid #00f3ff' }}>
-                     <DmContactPicker
-                        contacts={dmContacts}
-                        imageFile={lastImageRef.current}
-                        onSelect={(contact, message) => {
-                          setDmMode('idle');
-                          executeDm(contact, message, lastImageRef.current);
-                        }}
-                        onCancel={() => {
-                          setDmMode('idle');
-                          addMessage({ role: 'assistant', content: 'DM cancelled. What else can I help you with?', timestamp: Date.now() });
-                        }}
-                     />
-                  </div>
-                </div>
-              )}
-
-              {/* DM Fetching Spinner */}
-              {dmMode === 'fetching' && (
-                <div style={{ display: 'flex', width: '100%', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, minWidth: 40, borderRadius: '50%', border: '1px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🌸</div>
-                  <div className="chat-bubble-processing" style={{ padding: '12px 16px', maxWidth: 400, display: 'flex', alignItems: 'center', gap: 12 }}>
-                     <span style={{ color: '#d1d5db', fontSize: 14 }}>Opening Instagram and reading your inbox...</span>
-                     <div className="agent-spinner" />
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-              </div>
-            </div>
-
-            {/* ── BOTTOM BAR: Quick Prompts + Input ── */}
-            <div style={{ padding: '0 24px 20px 24px', flexShrink: 0 }}>
-              
-              {/* Quick Prompts */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                {(uploadedFile
-                  ? [
-                    { icon: '🔍', label: 'Analyze and generate captions' },
-                    { icon: '📸', label: 'Post to Instagram feed' },
-                    { icon: '✨', label: 'Add to story' },
-                  ]
-                  : [
-                    { icon: '📸', label: 'Post this image to Instagram' },
-                    { icon: '#️⃣', label: 'Suggest hashtags for tech' },
-                    { icon: '🐦', label: 'Write a viral tweet' },
-                  ]
-                ).map(({ icon, label }) => (
-                  <button
-                    key={label}
-                    onClick={() => sendMessage(label)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '7px 14px', borderRadius: 9999,
-                      fontSize: 12, color: '#d1d5db',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      cursor: 'pointer', transition: 'all 0.2s',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(0,243,255,0.4)')}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
-                  >
-                    <span>{icon}</span>
-                    <span>{label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Input Bar */}
-              <div style={{ position: 'relative' }}>
-                {/* File Upload Preview */}
-                {uploadedFile && (
-                  <div className="glass-panel" style={{ position: 'absolute', bottom: '100%', marginBottom: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 12, width: 'fit-content' }}>
-                    {uploadedFile.type.startsWith('image/') ? (
-                      <img src={URL.createObjectURL(uploadedFile)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: 40, height: 40, borderRadius: 8, background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📎</div>
-                    )}
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: 'white' }}>{uploadedFile.name}</div>
-                      <div style={{ fontSize: 10, color: '#9ca3af' }}>{(uploadedFile.size / 1024).toFixed(0)}KB</div>
-                    </div>
-                    <button onClick={() => setUploadedFile(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18 }}>×</button>
-                  </div>
-                )}
-
-                {/* Glow Effect */}
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,243,255,0.15), transparent, rgba(176,38,255,0.15))', borderRadius: 16, filter: 'blur(8px)', pointerEvents: 'none' }}></div>
-                
-                {/* Main Input Bar */}
-                <div className="glass-panel" style={{ position: 'relative', background: '#0d0e15', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '8px 8px 8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  
-                  {/* Attachment Button */}
-                  <button
-                    title="Attach file"
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', position: 'relative' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#00f3ff'; e.currentTarget.style.borderColor = 'rgba(0,243,255,0.3)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                  >
-                    <i className="fa-solid fa-paperclip" style={{ fontSize: 13 }}></i>
-                    {uploadedFile && (
-                      <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, background: '#6366f1', borderRadius: '50%' }}></span>
-                    )}
                   </button>
                   <input
                     ref={fileInputRef}
